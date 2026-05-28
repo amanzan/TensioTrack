@@ -782,25 +782,43 @@ class _CaptureScreenState extends State<CaptureScreen> {
                   ),
           ),
           const SizedBox(height: 16),
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            crossAxisAlignment: WrapCrossAlignment.center,
+          Row(
             children: [
-              FilledButton.icon(
-                onPressed: () => _pickImage(ImageSource.camera),
-                icon: const Icon(Icons.photo_camera_outlined),
-                label: const Text('Abrir cámara'),
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: () => _pickImage(ImageSource.camera),
+                  icon: const Icon(Icons.photo_camera_outlined, size: 18),
+                  label: const Text('Cámara', style: TextStyle(fontSize: 12.5)),
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
               ),
-              OutlinedButton.icon(
-                onPressed: () => _pickImage(ImageSource.gallery),
-                icon: const Icon(Icons.photo_library_outlined),
-                label: const Text('Galería'),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => _pickImage(ImageSource.gallery),
+                  icon: const Icon(Icons.photo_library_outlined, size: 18),
+                  label: const Text('Galería', style: TextStyle(fontSize: 12.5)),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
               ),
-              TextButton.icon(
-                onPressed: _loadDemoImage,
-                icon: const Icon(Icons.auto_awesome, color: Color(0xFF008D84), size: 20),
-                label: const Text('Cargar imagen demo', style: TextStyle(color: Color(0xFF008D84))),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _loadDemoImage,
+                  icon: const Icon(Icons.auto_awesome, size: 18),
+                  label: const Text('Demo', style: TextStyle(fontSize: 12.5)),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF008D84),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
               ),
             ],
           ),
@@ -812,12 +830,6 @@ class _CaptureScreenState extends State<CaptureScreen> {
               icon: Icons.analytics_outlined,
               title: 'Analizando imagen...',
               text: 'Procesando la captura con el motor OCR inteligente para detectar las métricas de presión arterial...',
-            )
-          else if (_ocrResult != null)
-            const InfoPanel(
-              icon: Icons.auto_awesome_outlined,
-              title: 'Lectura Completada',
-              text: 'Hemos localizado y procesado los valores de presión. Por favor, verifica que coinciden con los marcados en la imagen antes de guardarlos.',
             )
           else if (_ocrFailed && _apiKeyMissing)
             Container(
@@ -926,7 +938,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
                 ],
               ),
             )
-          else
+          else if (_ocrResult == null)
             const InfoPanel(
               icon: Icons.document_scanner_outlined,
               title: 'Reconocimiento OCR Inteligente',
