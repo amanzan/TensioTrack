@@ -888,6 +888,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
   OcrResult? _ocrResult;
   bool _ocrFailed = false;
   bool _apiKeyMissing = false;
+  String? _ocrError;
 
   @override
   void initState() {
@@ -928,6 +929,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
       _ocrResult = null;
       _ocrFailed = false;
       _apiKeyMissing = false;
+      _ocrError = null;
     });
 
     if (_apiKey.isEmpty) {
@@ -951,12 +953,30 @@ class _CaptureScreenState extends State<CaptureScreen> {
     } catch (e) {
       debugPrint('Error durante el OCR: $e');
       if (mounted) {
+        String userFriendlyMsg = 'Ocurrió un error inesperado al conectar con el servidor de IA.';
+        final errorStr = e.toString();
+        
+        if (errorStr.contains('503') || errorStr.contains('UNAVAILABLE') || errorStr.contains('high demand')) {
+          userFriendlyMsg = 'El servidor de Gemini está saturado debido a una alta demanda temporal. Por favor, inténtalo de nuevo en unos momentos.';
+        } else if (errorStr.contains('RESOURCE_EXHAUSTED') || errorStr.contains('429')) {
+          userFriendlyMsg = 'Se ha superado el límite de peticiones de la clave API. Por favor, espera un minuto antes de reintentarlo.';
+        } else if (errorStr.contains('400') || errorStr.contains('API_KEY_INVALID') || errorStr.contains('invalid key')) {
+          userFriendlyMsg = 'La clave API de Gemini no es válida o está mal configurada. Revisa tus variables de entorno.';
+        } else if (errorStr.contains('TimeoutException') || errorStr.contains('SocketException') || errorStr.contains('Network') || errorStr.contains('Failed host lookup')) {
+          userFriendlyMsg = 'No se ha podido establecer conexión a internet. Comprueba tu red Wi-Fi o datos móviles.';
+        } else {
+          if (errorStr.startsWith('GenerativeAIException:')) {
+            userFriendlyMsg = errorStr.replaceFirst('GenerativeAIException:', '').trim();
+          } else {
+            userFriendlyMsg = errorStr;
+          }
+        }
         setState(() {
           _ocrFailed = true;
+          _ocrError = userFriendlyMsg;
         });
       }
-    }
- finally {
+    } finally {
       if (mounted) {
         setState(() => _processing = false);
       }
@@ -969,6 +989,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
       _ocrResult = null;
       _ocrFailed = false;
       _apiKeyMissing = false;
+      _ocrError = null;
       // Pequeño byte array de imagen PNG 1x1 para simular el canvas de carga
       _imageBytes = base64Decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==");
     });
@@ -998,6 +1019,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
       _ocrResult = null;
       _ocrFailed = false;
       _apiKeyMissing = false;
+      _ocrError = null;
     });
   }
 
@@ -1169,13 +1191,17 @@ class _CaptureScreenState extends State<CaptureScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Row(
+                  Row(
                     children: [
-                      Icon(Icons.warning_amber_rounded, color: Color(0xFFE55B5B), size: 28),
-                      SizedBox(width: 12),
+                      Icon(
+                        _ocrError != null ? Icons.cloud_off_rounded : Icons.warning_amber_rounded,
+                        color: const Color(0xFFE55B5B),
+                        size: 28,
+                      ),
+                      const SizedBox(width: 12),
                       Text(
-                        'No se detectaron métricas',
-                        style: TextStyle(
+                        _ocrError != null ? 'Fallo en la detección inteligente' : 'No se detectaron métricas',
+                        style: const TextStyle(
                           fontWeight: FontWeight.w900,
                           fontSize: 17,
                           color: Color(0xFFE55B5B),
@@ -1184,12 +1210,13 @@ class _CaptureScreenState extends State<CaptureScreen> {
                     ],
                   ),
                   const SizedBox(height: 10),
-                  const Text(
+                  Text(
+                    _ocrError ??
                     'No logramos encontrar los números de presión arterial en esta foto de forma automática. Asegúrate de que:\n'
                     ' • La pantalla del tensiómetro esté bien enfocada y centrada.\n'
                     ' • Evites reflejos fuertes de luz o sombras marcadas.\n'
                     ' • Los números sean grandes y claramente visibles.',
-                    style: TextStyle(color: Colors.black87, height: 1.4, fontSize: 13.5),
+                    style: const TextStyle(color: Colors.black87, height: 1.4, fontSize: 13.5),
                   ),
                   const SizedBox(height: 16),
                   Row(

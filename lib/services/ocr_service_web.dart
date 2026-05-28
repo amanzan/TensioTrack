@@ -109,7 +109,7 @@ Do NOT include any other text, explanation, units, or formatting.''';
       );
     } catch (e) {
       debugPrint('TensioTrack Web Gemini ERROR: $e');
-      return null;
+      rethrow;
     }
   }
 }

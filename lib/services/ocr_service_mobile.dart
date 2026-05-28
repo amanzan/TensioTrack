@@ -134,10 +134,10 @@ Do NOT include any other text, explanation, units, or formatting.''';
         'TensioTrack Gemini TIMEOUT: La petición tardó más de '
         '${_timeout.inSeconds}s. Comprueba la conexión a internet.',
       );
-      return null;
+      rethrow;
     } catch (e) {
       debugPrint('TensioTrack Gemini ERROR: $e');
-      return null;
+      rethrow;
     }
   }
 }
