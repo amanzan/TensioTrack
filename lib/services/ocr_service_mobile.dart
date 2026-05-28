@@ -1,142 +1,143 @@
-import 'dart:io';
-import 'dart:math';
-import 'dart:typed_data';
+import 'dart:async';
 import 'dart:ui';
 
-import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
+import 'package:flutter/foundation.dart';
+import 'package:google_generative_ai/google_generative_ai.dart';
+
 import 'ocr_service.dart';
 
-/// Retorna la instancia de servicio OCR móvil.
-OcrService getOcrService() => MobileOcrService();
+/// Retorna la instancia de servicio OCR móvil (Gemini Vision).
+OcrService getOcrService() => GeminiOcrService();
 
-class _Candidate {
-  _Candidate({
-    required this.value,
-    required this.rect,
-    required this.height,
-  });
+class GeminiOcrService implements OcrService {
+  /// Clave API de Gemini.
+  ///
+  /// Se lee de la variable de entorno GEMINI_API_KEY definida en tiempo
+  /// de compilación con --dart-define=GEMINI_API_KEY=tu_clave_aqui
+  /// o con --dart-define-from-file=.env.json
+  ///
+  /// Para obtener tu clave gratuita:
+  ///   1. Ve a https://aistudio.google.com/apikey
+  ///   2. Inicia sesión con tu cuenta de Google
+  ///   3. Haz clic en "Create API key"
+  ///   4. Copia la clave
+  static const _apiKey = String.fromEnvironment('GEMINI_API_KEY');
 
-  final int value;
-  final Rect rect;
-  final double height;
-}
+  /// Timeout máximo para la petición a Gemini (incluye subida de imagen).
+  static const _timeout = Duration(seconds: 60);
 
-class MobileOcrService implements OcrService {
   @override
-  Future<OcrResult?> recognizePressure(String imagePath, Uint8List imageBytes) async {
-    if (imagePath.isEmpty) return null;
-
-    final file = File(imagePath);
-    if (!await file.exists()) return null;
-
-    // 1. Obtener dimensiones reales de la imagen usando el decodificador de Flutter
-    double imageWidth = 1000;
-    double imageHeight = 1000;
-    try {
-      final codec = await instantiateImageCodec(imageBytes);
-      final frameInfo = await codec.getNextFrame();
-      imageWidth = frameInfo.image.width.toDouble();
-      imageHeight = frameInfo.image.height.toDouble();
-    } catch (_) {
-      // Fallback a dimensiones estimadas si falla
+  Future<OcrResult?> recognizePressure(
+      String imagePath, Uint8List imageBytes) async {
+    if (_apiKey.isEmpty) {
+      debugPrint(
+        'TensioTrack: API key de Gemini no configurada. '
+        'Ejecuta con: flutter run --dart-define-from-file=.env.json',
+      );
+      return null;
     }
 
-    final inputImage = InputImage.fromFilePath(imagePath);
-    final textRecognizer = TextRecognizer(script: TextRecognitionScript.latin);
+    debugPrint(
+      'TensioTrack Gemini: Enviando imagen '
+      '(${(imageBytes.length / 1024).toStringAsFixed(0)} KB)...',
+    );
 
     try {
-      final recognizedText = await textRecognizer.processImage(inputImage);
-      final candidates = <_Candidate>[];
+      final model = GenerativeModel(
+        model: 'gemini-2.5-flash',
+        apiKey: _apiKey,
+      );
 
-      // 2. Extraer todos los elementos de texto que sean números válidos en rango médico
-      for (final block in recognizedText.blocks) {
-        for (final line in block.lines) {
-          for (final element in line.elements) {
-            final text = element.text.trim();
-            // Mantener solo dígitos
-            final cleanText = text.replaceAll(RegExp(r'\D'), '');
-            if (cleanText.isEmpty) continue;
+      const prompt = '''Analyze this photo of a blood pressure monitor (tensiometer).
+Read the numeric values shown on the LCD screen display.
 
-            final value = int.tryParse(cleanText);
-            if (value == null) continue;
+The LCD screen typically shows three values:
+- Systolic pressure (SYS): usually the top and largest number
+- Diastolic pressure (DIA): usually below SYS, second largest
+- Pulse rate (PULSE): usually the smallest number at the bottom
 
-            // Rango de presión arterial fisiológica razonable (SYS y DIA)
-            if (value >= 40 && value <= 250) {
-              candidates.add(_Candidate(
-                value: value,
-                rect: element.boundingBox,
-                height: element.boundingBox.height,
-              ));
-            }
+Respond ONLY with three integers separated by commas in this exact format:
+systolic,diastolic,pulse
+
+Example responses:
+136,85,72
+120,80,65
+
+If you cannot read a value clearly, use 0 for that value.
+Do NOT include any other text, explanation, units, or formatting.''';
+
+      final content = Content.multi([
+        TextPart(prompt),
+        DataPart('image/jpeg', imageBytes),
+      ]);
+
+      // Enviar con timeout para evitar que la UI se quede colgada
+      final response = await model
+          .generateContent([content]).timeout(_timeout);
+      final text = response.text?.trim();
+
+      debugPrint('TensioTrack Gemini respuesta: "$text"');
+
+      if (text == null || text.isEmpty) return null;
+
+      // Parsear respuesta: esperamos "136,85,72"
+      int sys = 0, dia = 0;
+      final parts = text.split(',');
+
+      if (parts.length >= 2) {
+        sys = int.tryParse(parts[0].trim()) ?? 0;
+        dia = int.tryParse(parts[1].trim()) ?? 0;
+      } else {
+        // Fallback: extraer todos los números del texto
+        final numbers = RegExp(r'\d+')
+            .allMatches(text)
+            .map((m) => int.parse(m.group(0)!))
+            .where((n) => n >= 30 && n <= 250)
+            .toList();
+
+        if (numbers.length >= 2) {
+          numbers.sort((a, b) => b.compareTo(a));
+          sys = numbers[0];
+          dia = numbers[1];
+        } else if (numbers.length == 1) {
+          if (numbers[0] >= 95) {
+            sys = numbers[0];
+          } else {
+            dia = numbers[0];
           }
         }
       }
 
-      // 3. Filtrar solapamientos (evitar leer el mismo número dos veces)
-      final uniqueCandidates = <_Candidate>[];
-      for (final c in candidates) {
-        bool isDuplicate = false;
-        for (final u in uniqueCandidates) {
-          // Calcular intersección
-          final left = max(c.rect.left, u.rect.left);
-          final top = max(c.rect.top, u.rect.top);
-          final right = min(c.rect.right, u.rect.right);
-          final bottom = min(c.rect.bottom, u.rect.bottom);
+      if (sys == 0 && dia == 0) return null;
 
-          if (left < right && top < bottom) {
-            final overlapArea = (right - left) * (bottom - top);
-            final areaC = c.rect.width * c.rect.height;
-            final areaU = u.rect.width * u.rect.height;
-            final minArea = min(areaC, areaU);
+      debugPrint('TensioTrack Gemini RESULTADO: SYS=$sys, DIA=$dia');
 
-            if (minArea > 0 && (overlapArea / minArea) > 0.5) {
-              isDuplicate = true;
-              break;
-            }
-          }
-        }
-        if (!isDuplicate) {
-          uniqueCandidates.add(c);
-        }
-      }
-
-      // 4. Ordenar candidatos por su altura vertical de mayor a menor (tamaño visual de fuente)
-      uniqueCandidates.sort((a, b) => b.height.compareTo(a.height));
-
-      // Necesitamos al menos los dos números más grandes
-      if (uniqueCandidates.length < 2) {
-        return null;
-      }
-
-      // Los dos números con mayor altura visual
-      final first = uniqueCandidates[0];
-      final second = uniqueCandidates[1];
-
-      // Por lógica médica, la presión sistólica (SYS) es siempre mayor que la diastólica (DIA)
-      final val1 = first.value;
-      final val2 = second.value;
-
-      final systolic = val1 > val2 ? val1 : val2;
-      final diastolic = val1 > val2 ? val2 : val1;
-
-      final systolicBox = val1 > val2 ? first.rect : second.rect;
-      final diastolicBox = val1 > val2 ? second.rect : first.rect;
+      // Obtener dimensiones de la imagen
+      double imageWidth = 1000, imageHeight = 1000;
+      try {
+        final codec = await instantiateImageCodec(imageBytes);
+        final frame = await codec.getNextFrame();
+        imageWidth = frame.image.width.toDouble();
+        imageHeight = frame.image.height.toDouble();
+      } catch (_) {}
 
       return OcrResult(
-        systolic: systolic,
-        diastolic: diastolic,
-        systolicBox: systolicBox,
-        diastolicBox: diastolicBox,
+        systolic: sys,
+        diastolic: dia,
         imageWidth: imageWidth,
         imageHeight: imageHeight,
-        confidence: 0.92, // Alta confianza por motor nativo
-        engineName: 'Google ML Kit (Nativo)',
+        confidence: (sys > 0 && dia > 0) ? 0.95 : 0.6,
+        engineName: 'Gemini Vision',
       );
-    } catch (e) {
-      // Capturar cualquier error del motor nativo
+    } on TimeoutException {
+      debugPrint(
+        'TensioTrack Gemini TIMEOUT: La petición tardó más de '
+        '${_timeout.inSeconds}s. Comprueba la conexión a internet.',
+      );
       return null;
-    } finally {
-      await textRecognizer.close();
+    } catch (e) {
+      debugPrint('TensioTrack Gemini ERROR: $e');
+      return null;
     }
   }
 }

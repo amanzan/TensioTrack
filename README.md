@@ -8,39 +8,38 @@ Se trata del Trabajo de Fin de Grado del estudiante Alberto Manzano Torregrosa p
 
 ## Estado actual del proyecto
 
-La aplicación ya incluye una base funcional multiplataforma con las siguientes características:
+La aplicación incluye una base funcional multiplataforma con las siguientes características:
 
-- Pantalla de inicio centrada en la última medición registrada.
-- Registro manual de presión sistólica y diastólica.
-- Captura de imagen desde cámara o galería como paso previo a la futura integración OCR.
-- Histórico de mediciones almacenadas localmente.
-- Pantalla de estadísticas con evolución temporal, promedios y distribución de estados.
-- Gestión básica de recordatorios dentro de la aplicación.
-- Persistencia local mediante `shared_preferences`.
-- Validación básica de valores antes de guardar una medición.
+- **Pantalla de inicio** centrada en la última medición registrada.
+- **Registro manual** de presión sistólica y diastólica.
+- **Reconocimiento inteligente (OCR)** de valores SYS, DIA y pulso a partir de fotografías usando el modelo **Gemini Vision (`gemini-2.5-flash`)**.
+- **Histórico de mediciones** almacenadas localmente.
+- **Pantalla de estadísticas** con evolución temporal, promedios y distribución de estados.
+- **Gestión de recordatorios** dentro de la aplicación.
+- **Persistencia local** mediante `shared_preferences`.
+- **Validación básica de valores** antes de guardar una medición.
 
-## Funcionalidades pendientes
+## Funcionalidades pendientes y mejoras futuras
 
-El OCR todavía no está integrado. Actualmente, el flujo de captura permite obtener o seleccionar una imagen del tensiómetro, pero los valores deben confirmarse manualmente antes de guardarse.
+Tras la integración del motor OCR en la nube mediante Gemini, quedan las siguientes mejoras y líneas de desarrollo:
 
-También quedan como posibles mejoras futuras:
+- **OCR local y offline**: Como alternativa al reconocimiento en la nube con Gemini, se contempla implementar reconocimiento local mediante **Tesseract** (`flutter_tesseract_ocr`) para evitar la dependencia de internet y asegurar la privacidad total de los datos.
+- **Preprocesamiento avanzado de imágenes** (filtros de contraste, umbralizado) para mejorar la precisión del OCR offline.
+- **Notificaciones locales reales** para avisar al usuario de los recordatorios.
+- **Cifrado** o almacenamiento seguro reforzado.
+- **Sincronización en la nube** y exportación de informes en PDF/CSV.
 
-- Reconocimiento automático de valores mediante OCR.
-- Preprocesamiento avanzado de imágenes.
-- Notificaciones locales reales para recordatorios.
-- Cifrado o almacenamiento seguro reforzado.
-- Sincronización en la nube.
-- Exportación de datos o informes.
+## Configuración de Gemini OCR
 
-## Plataformas objetivo
+Para que el reconocimiento automático por imagen funcione, se requiere configurar una API Key de Gemini:
 
-El proyecto está configurado para ejecutarse en:
-
-- Android
-- iOS
-- Web
-
-Al estar desarrollado en Flutter, la interfaz principal se comparte desde una única base de código ubicada en `lib/main.dart`.
+1. Obtén una API Key gratuita en [Google AI Studio](https://aistudio.google.com/).
+2. Crea un archivo llamado `.env.json` en la raíz del proyecto con la siguiente estructura (nunca lo añadas al repositorio Git, ya está incluido en `.gitignore`):
+   ```json
+   {
+     "GEMINI_API_KEY": "TU_API_KEY_AQUI"
+   }
+   ```
 
 ## Ejecución
 
@@ -48,13 +47,16 @@ Para instalar dependencias y ejecutar el proyecto:
 
 ```bash
 flutter pub get
-flutter run
 ```
 
-Para ejecutar en web:
-
+Ejecutar en móvil (Android/iOS) cargando la API key de Gemini:
 ```bash
-flutter run -d chrome
+flutter run --dart-define-from-file=.env.json
+```
+
+Para ejecutar en web con la clave de Gemini:
+```bash
+flutter run -d chrome --dart-define-from-file=.env.json
 ```
 
 ## Validación técnica actual

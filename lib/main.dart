@@ -656,7 +656,12 @@ class _CaptureScreenState extends State<CaptureScreen> {
 
   Future<void> _pickImage(ImageSource source) async {
     final picker = ImagePicker();
-    final image = await picker.pickImage(source: source, imageQuality: 85);
+    final image = await picker.pickImage(
+      source: source,
+      imageQuality: 80,
+      maxWidth: 1280,
+      maxHeight: 1280,
+    );
     if (image == null) return;
 
     final bytes = await image.readAsBytes();
@@ -676,12 +681,14 @@ class _CaptureScreenState extends State<CaptureScreen> {
         _ocrFailed = result == null;
       });
     } catch (e) {
+      debugPrint('Error durante el OCR: $e');
       if (mounted) {
         setState(() {
           _ocrFailed = true;
         });
       }
-    } finally {
+    }
+ finally {
       if (mounted) {
         setState(() => _processing = false);
       }
@@ -898,9 +905,9 @@ class _CaptureScreenState extends State<CaptureScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
-                      _detectedMetricColumn('SISTÓLICA', '${_ocrResult!.systolic}', const Color(0xFF43B883)),
+                      _detectedMetricColumn('SISTÓLICA', _ocrResult!.systolic > 0 ? '${_ocrResult!.systolic}' : '--', const Color(0xFF43B883)),
                       Container(width: 1, height: 40, color: const Color(0x22008D84)),
-                      _detectedMetricColumn('DIASTÓLICA', '${_ocrResult!.diastolic}', const Color(0xFF5E8CFF)),
+                      _detectedMetricColumn('DIASTÓLICA', _ocrResult!.diastolic > 0 ? '${_ocrResult!.diastolic}' : '--', const Color(0xFF5E8CFF)),
                     ],
                   ),
                   const SizedBox(height: 12),
@@ -1639,10 +1646,10 @@ class _ManualEntrySheetState extends State<ManualEntrySheet> {
   void initState() {
     super.initState();
     _systolic = TextEditingController(
-      text: widget.initialSystolic != null ? '${widget.initialSystolic}' : '',
+      text: widget.initialSystolic != null && widget.initialSystolic! > 0 ? '${widget.initialSystolic}' : '',
     );
     _diastolic = TextEditingController(
-      text: widget.initialDiastolic != null ? '${widget.initialDiastolic}' : '',
+      text: widget.initialDiastolic != null && widget.initialDiastolic! > 0 ? '${widget.initialDiastolic}' : '',
     );
     if (widget.method == EntryMethod.camera) {
       _notes.text = 'Lectura detectada automáticamente vía OCR.';
