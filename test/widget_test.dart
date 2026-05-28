@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tensiotrack/main.dart';
 
@@ -17,6 +18,9 @@ void main() {
 
     expect(find.text('Inicio'), findsWidgets);
     expect(find.textContaining('Alberto'), findsWidgets);
-    expect(find.text('Última medición · 13 may, 08:30'), findsOneWidget);
+
+    final now = DateTime.now();
+    final expectedDate = DateFormat("d MMM, HH:mm", "es_ES").format(DateTime(now.year, now.month, now.day, 8, 30));
+    expect(find.text('Última medición · $expectedDate'), findsOneWidget);
   });
 }

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
@@ -9,6 +10,8 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
+
+import 'services/ocr_service.dart';
 
 const _uuid = Uuid();
 
@@ -363,13 +366,21 @@ class _MainShellState extends State<MainShell> {
 
   int _index = 0;
 
-  void _openManualEntry([EntryMethod method = EntryMethod.manual]) {
+  void _openManualEntry([
+    EntryMethod method = EntryMethod.manual,
+    int? systolic,
+    int? diastolic,
+  ]) {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => ManualEntrySheet(method: method),
+      builder: (_) => ManualEntrySheet(
+        method: method,
+        initialSystolic: systolic,
+        initialDiastolic: diastolic,
+      ),
     );
   }
 
@@ -388,7 +399,8 @@ class _MainShellState extends State<MainShell> {
                   onOpenHistory: () => _setTab(_historyTab),
                 ),
                 CaptureScreen(
-                  onManualEntry: () => _openManualEntry(EntryMethod.camera),
+                  onManualEntry: (systolic, diastolic) =>
+                      _openManualEntry(EntryMethod.camera, systolic, diastolic),
                 ),
                 const HistoryScreen(),
                 const StatsScreen(),
@@ -630,7 +642,7 @@ class PressureValueRow extends StatelessWidget {
 class CaptureScreen extends StatefulWidget {
   const CaptureScreen({super.key, required this.onManualEntry});
 
-  final VoidCallback onManualEntry;
+  final void Function(int? systolic, int? diastolic) onManualEntry;
 
   @override
   State<CaptureScreen> createState() => _CaptureScreenState();
@@ -639,6 +651,8 @@ class CaptureScreen extends StatefulWidget {
 class _CaptureScreenState extends State<CaptureScreen> {
   Uint8List? _imageBytes;
   bool _processing = false;
+  OcrResult? _ocrResult;
+  bool _ocrFailed = false;
 
   Future<void> _pickImage(ImageSource source) async {
     final picker = ImagePicker();
@@ -649,10 +663,57 @@ class _CaptureScreenState extends State<CaptureScreen> {
     setState(() {
       _imageBytes = bytes;
       _processing = true;
+      _ocrResult = null;
+      _ocrFailed = false;
     });
-    await Future<void>.delayed(const Duration(milliseconds: 900));
+
+    try {
+      final ocrService = OcrService();
+      final result = await ocrService.recognizePressure(image.path, bytes);
+      if (!mounted) return;
+      setState(() {
+        _ocrResult = result;
+        _ocrFailed = result == null;
+      });
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _ocrFailed = true;
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _processing = false);
+      }
+    }
+  }
+
+  void _loadDemoImage() async {
+    setState(() {
+      _processing = true;
+      _ocrResult = null;
+      _ocrFailed = false;
+      // Pequeño byte array de imagen PNG 1x1 para simular el canvas de carga
+      _imageBytes = base64Decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==");
+    });
+
+    await Future<void>.delayed(const Duration(milliseconds: 1200));
+
     if (!mounted) return;
-    setState(() => _processing = false);
+
+    setState(() {
+      _processing = false;
+      _ocrResult = OcrResult(
+        systolic: 128,
+        diastolic: 84,
+        systolicBox: const Rect.fromLTWH(130, 45, 240, 85),
+        diastolicBox: const Rect.fromLTWH(130, 160, 240, 85),
+        imageWidth: 500,
+        imageHeight: 300,
+        confidence: 0.96,
+        engineName: 'TensioTrack OCR Demo',
+      );
+    });
   }
 
   @override
@@ -676,7 +737,11 @@ class _CaptureScreenState extends State<CaptureScreen> {
                 : Stack(
                     fit: StackFit.expand,
                     children: [
-                      Image.memory(_imageBytes!, fit: BoxFit.cover),
+                      Image.memory(_imageBytes!, fit: BoxFit.contain),
+                      if (_ocrResult != null)
+                        CustomPaint(
+                          painter: OcrOverlayPainter(result: _ocrResult!),
+                        ),
                       if (_processing)
                         Container(
                           color: Colors.black.withValues(alpha: .35),
@@ -693,6 +758,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
           Wrap(
             spacing: 12,
             runSpacing: 12,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               FilledButton.icon(
                 onPressed: () => _pickImage(ImageSource.camera),
@@ -704,25 +770,381 @@ class _CaptureScreenState extends State<CaptureScreen> {
                 icon: const Icon(Icons.photo_library_outlined),
                 label: const Text('Galería'),
               ),
+              TextButton.icon(
+                onPressed: _loadDemoImage,
+                icon: const Icon(Icons.auto_awesome, color: Color(0xFF008D84), size: 20),
+                label: const Text('Cargar imagen demo', style: TextStyle(color: Color(0xFF008D84))),
+              ),
             ],
           ),
           const SizedBox(height: 18),
-          InfoPanel(
-            icon: Icons.document_scanner_outlined,
-            title: 'OCR pendiente de integración',
-            text:
-                'La imagen se captura y queda lista para el flujo de preprocesamiento. '
-                'Hasta integrar OCR, confirma los valores manualmente antes de guardar.',
-          ),
+          
+          // Panel dinámico de información / estado del OCR
+          if (_processing)
+            const InfoPanel(
+              icon: Icons.analytics_outlined,
+              title: 'Analizando imagen...',
+              text: 'Procesando la captura con el motor OCR inteligente para detectar las métricas de presión arterial...',
+            )
+          else if (_ocrResult != null)
+            const InfoPanel(
+              icon: Icons.auto_awesome_outlined,
+              title: 'Lectura Completada',
+              text: 'Hemos localizado y procesado los valores de presión. Por favor, verifica que coinciden con los marcados en la imagen antes de guardarlos.',
+            )
+          else if (_ocrFailed)
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFDF2F2),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: const Color(0x33E55B5B), width: 1.5),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(Icons.warning_amber_rounded, color: Color(0xFFE55B5B), size: 28),
+                      SizedBox(width: 12),
+                      Text(
+                        'No se detectaron métricas',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 17,
+                          color: Color(0xFFE55B5B),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    'No logramos encontrar los números de presión arterial en esta foto de forma automática. Asegúrate de que:\n'
+                    ' • La pantalla del tensiómetro esté bien enfocada y centrada.\n'
+                    ' • Evites reflejos fuertes de luz o sombras marcadas.\n'
+                    ' • Los números sean grandes y claramente visibles.',
+                    style: TextStyle(color: Colors.black87, height: 1.4, fontSize: 13.5),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: _loadDemoImage,
+                          icon: const Icon(Icons.auto_awesome, color: Color(0xFF008D84)),
+                          label: const Text('Probar con demo interactiva', style: TextStyle(color: Color(0xFF008D84))),
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: Color(0xFF008D84)),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            )
+          else
+            const InfoPanel(
+              icon: Icons.document_scanner_outlined,
+              title: 'Reconocimiento OCR Inteligente',
+              text: 'Saca una foto o elige una imagen de tu tensiómetro. TensioTrack detectará automáticamente los valores más grandes correspondientes a la presión sistólica y diastólica.',
+            ),
+
+          // Tarjeta de resultados detallados (solo si se detectaron valores)
+          if (_ocrResult != null && !_processing) ...[
+            const SizedBox(height: 18),
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEAF8F6),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: const Color(0x33008D84), width: 1.5),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.check_circle, color: Color(0xFF008D84), size: 24),
+                      const SizedBox(width: 10),
+                      const Text(
+                        '¡Métricas Detectadas!',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 17,
+                          color: Color(0xFF008D84),
+                        ),
+                      ),
+                      const Spacer(),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF008D84).withValues(alpha: .1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          '${(_ocrResult!.confidence * 100).toInt()}% conf.',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF008D84),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      _detectedMetricColumn('SISTÓLICA', '${_ocrResult!.systolic}', const Color(0xFF43B883)),
+                      Container(width: 1, height: 40, color: const Color(0x22008D84)),
+                      _detectedMetricColumn('DIASTÓLICA', '${_ocrResult!.diastolic}', const Color(0xFF5E8CFF)),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Motor: ${_ocrResult!.engineName}',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Colors.black45,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
           const SizedBox(height: 18),
+          
+          // Botón de acción principal adaptativo
           FilledButton.icon(
-            onPressed: widget.onManualEntry,
-            icon: const Icon(Icons.edit_note_outlined),
-            label: const Text('Introducir valores detectados'),
+            onPressed: () {
+              if (_ocrResult != null) {
+                widget.onManualEntry(_ocrResult!.systolic, _ocrResult!.diastolic);
+              } else {
+                widget.onManualEntry(null, null);
+              }
+            },
+            icon: Icon(
+              _ocrResult != null ? Icons.check_circle_outline : Icons.edit_note_outlined,
+            ),
+            label: Text(
+              _ocrResult != null
+                  ? 'Confirmar y guardar lectura'
+                  : 'Introducir valores manualmente',
+            ),
+            style: FilledButton.styleFrom(
+              backgroundColor: _ocrResult != null ? const Color(0xFF008D84) : null,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(18),
+              ),
+            ),
           ),
         ],
       ),
     );
+  }
+
+  Widget _detectedMetricColumn(String label, String value, Color color) {
+    return Column(
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            color: Colors.black54,
+            letterSpacing: 1.1,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 32,
+            fontWeight: FontWeight.w900,
+            color: color,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class OcrOverlayPainter extends CustomPainter {
+  final OcrResult result;
+
+  OcrOverlayPainter({required this.result});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (result.imageWidth == 0 || result.imageHeight == 0) return;
+
+    // Calcular escala y offset para BoxFit.contain
+    final scaleX = size.width / result.imageWidth;
+    final scaleY = size.height / result.imageHeight;
+    final scale = min(scaleX, scaleY);
+
+    final dispWidth = result.imageWidth * scale;
+    final dispHeight = result.imageHeight * scale;
+
+    final dx = (size.width - dispWidth) / 2;
+    final dy = (size.height - dispHeight) / 2;
+
+    final isDemo = result.engineName == 'TensioTrack OCR Demo';
+
+    if (isDemo) {
+      // Dibujar fondo de pantalla LCD simulado
+      final lcdPaint = Paint()
+        ..color = const Color(0xFFE2EAD9) // Tono verdoso LCD clásico retro
+        ..style = PaintingStyle.fill;
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(dx, dy, dispWidth, dispHeight),
+          const Radius.circular(20),
+        ),
+        lcdPaint,
+      );
+
+      // Dibujar cuadrícula LCD muy sutil
+      final gridPaint = Paint()
+        ..color = const Color(0x0F000000)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.0;
+      for (double i = dx; i < dx + dispWidth; i += 20) {
+        canvas.drawLine(Offset(i, dy), Offset(i, dy + dispHeight), gridPaint);
+      }
+      for (double j = dy; j < dy + dispHeight; j += 20) {
+        canvas.drawLine(Offset(dx, j), Offset(dx + dispWidth, j), gridPaint);
+      }
+
+      // Dibujar etiqueta mmHg de LCD
+      final labelPainter = TextPainter(
+        text: const TextSpan(
+          text: 'mmHg',
+          style: TextStyle(
+            color: Color(0x55000000),
+            fontSize: 13,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        textDirection: ui.TextDirection.ltr,
+      )..layout();
+      labelPainter.paint(canvas, Offset(dx + dispWidth - 60, dy + 25));
+    }
+
+    final paintSystolic = Paint()
+      ..color = const Color(0x3343B883) // Verde semitransparente
+      ..style = PaintingStyle.fill;
+
+    final borderSystolic = Paint()
+      ..color = const Color(0xFF43B883) // Verde
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3.0;
+
+    final paintDiastolic = Paint()
+      ..color = const Color(0x335E8CFF) // Azul semitransparente
+      ..style = PaintingStyle.fill;
+
+    final borderDiastolic = Paint()
+      ..color = const Color(0xFF5E8CFF) // Azul
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3.0;
+
+    // Dibujar caja de Sistólica
+    if (result.systolicBox != null) {
+      final rect = _scaleRect(result.systolicBox!, scale, dx, dy);
+
+      if (isDemo) {
+        // Dibujar número digital LCD
+        final numPainter = TextPainter(
+          text: const TextSpan(
+            text: '128',
+            style: TextStyle(
+              color: Color(0xFF1E351E), // Negro de LCD
+              fontSize: 54,
+              fontWeight: FontWeight.w900,
+              fontFamily: 'monospace',
+            ),
+          ),
+          textDirection: ui.TextDirection.ltr,
+        )..layout();
+        final textOffset = Offset(
+          rect.left + (rect.width - numPainter.width) / 2,
+          rect.top + (rect.height - numPainter.height) / 2,
+        );
+        numPainter.paint(canvas, textOffset);
+      }
+
+      canvas.drawRRect(RRect.fromRectAndRadius(rect, const Radius.circular(8)), paintSystolic);
+      canvas.drawRRect(RRect.fromRectAndRadius(rect, const Radius.circular(8)), borderSystolic);
+      _drawText(canvas, 'SYS: ${result.systolic}', rect.topLeft + const Offset(4, -20), const Color(0xFF43B883));
+    }
+
+    // Dibujar caja de Diastólica
+    if (result.diastolicBox != null) {
+      final rect = _scaleRect(result.diastolicBox!, scale, dx, dy);
+
+      if (isDemo) {
+        // Dibujar número digital LCD
+        final numPainter = TextPainter(
+          text: const TextSpan(
+            text: '84',
+            style: TextStyle(
+              color: Color(0xFF1E351E), // Negro de LCD
+              fontSize: 54,
+              fontWeight: FontWeight.w900,
+              fontFamily: 'monospace',
+            ),
+          ),
+          textDirection: ui.TextDirection.ltr,
+        )..layout();
+        final textOffset = Offset(
+          rect.left + (rect.width - numPainter.width) / 2,
+          rect.top + (rect.height - numPainter.height) / 2,
+        );
+        numPainter.paint(canvas, textOffset);
+      }
+
+      canvas.drawRRect(RRect.fromRectAndRadius(rect, const Radius.circular(8)), paintDiastolic);
+      canvas.drawRRect(RRect.fromRectAndRadius(rect, const Radius.circular(8)), borderDiastolic);
+      _drawText(canvas, 'DIA: ${result.diastolic}', rect.topLeft + const Offset(4, -20), const Color(0xFF5E8CFF));
+    }
+  }
+
+  Rect _scaleRect(Rect r, double scale, double dx, double dy) {
+    return Rect.fromLTWH(
+      dx + r.left * scale,
+      dy + r.top * scale,
+      r.width * scale,
+      r.height * scale,
+    );
+  }
+
+  void _drawText(Canvas canvas, String text, Offset offset, Color color) {
+    final textPainter = TextPainter(
+      text: TextSpan(
+        text: text,
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+          backgroundColor: color,
+        ),
+      ),
+      textDirection: ui.TextDirection.ltr,
+    );
+    textPainter.layout();
+    textPainter.paint(canvas, offset);
+  }
+
+  @override
+  bool shouldRepaint(covariant OcrOverlayPainter oldDelegate) {
+    return oldDelegate.result != result;
   }
 }
 
@@ -1191,9 +1613,16 @@ class ReminderTile extends StatelessWidget {
 }
 
 class ManualEntrySheet extends StatefulWidget {
-  const ManualEntrySheet({super.key, required this.method});
+  const ManualEntrySheet({
+    super.key,
+    required this.method,
+    this.initialSystolic,
+    this.initialDiastolic,
+  });
 
   final EntryMethod method;
+  final int? initialSystolic;
+  final int? initialDiastolic;
 
   @override
   State<ManualEntrySheet> createState() => _ManualEntrySheetState();
@@ -1201,10 +1630,24 @@ class ManualEntrySheet extends StatefulWidget {
 
 class _ManualEntrySheetState extends State<ManualEntrySheet> {
   final _formKey = GlobalKey<FormState>();
-  final _systolic = TextEditingController();
-  final _diastolic = TextEditingController();
+  late final TextEditingController _systolic;
+  late final TextEditingController _diastolic;
   final _notes = TextEditingController();
   DateTime _dateTime = DateTime.now();
+
+  @override
+  void initState() {
+    super.initState();
+    _systolic = TextEditingController(
+      text: widget.initialSystolic != null ? '${widget.initialSystolic}' : '',
+    );
+    _diastolic = TextEditingController(
+      text: widget.initialDiastolic != null ? '${widget.initialDiastolic}' : '',
+    );
+    if (widget.method == EntryMethod.camera) {
+      _notes.text = 'Lectura detectada automáticamente vía OCR.';
+    }
+  }
 
   @override
   void dispose() {
