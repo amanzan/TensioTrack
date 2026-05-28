@@ -902,6 +902,15 @@ class _CaptureScreenState extends State<CaptureScreen> {
     });
   }
 
+  void _clearImage() {
+    setState(() {
+      _imageBytes = null;
+      _ocrResult = null;
+      _ocrFailed = false;
+      _apiKeyMissing = false;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return ScreenFrame(
@@ -927,6 +936,20 @@ class _CaptureScreenState extends State<CaptureScreen> {
                       if (_ocrResult != null)
                         CustomPaint(
                           painter: OcrOverlayPainter(result: _ocrResult!),
+                        ),
+                      if (!_processing)
+                        Positioned(
+                          top: 14,
+                          right: 14,
+                          child: Material(
+                            color: Colors.black.withValues(alpha: 0.5),
+                            shape: const CircleBorder(),
+                            child: IconButton(
+                              onPressed: _clearImage,
+                              icon: const Icon(Icons.delete_outline_rounded, color: Colors.white),
+                              tooltip: 'Borrar imagen',
+                            ),
+                          ),
                         ),
                       if (_processing)
                         Container(
