@@ -383,6 +383,9 @@ class _MainShellState extends State<MainShell> {
         method: method,
         initialSystolic: systolic,
         initialDiastolic: diastolic,
+        onSaveSuccess: () {
+          SuccessAlert.show(context, 'La medición se ha registrado correctamente.');
+        },
       ),
     );
   }
@@ -1646,7 +1649,11 @@ class RemindersScreen extends StatelessWidget {
       isScrollControlled: true,
       useSafeArea: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => const ReminderSheet(),
+      builder: (_) => ReminderSheet(
+        onSaveSuccess: () {
+          SuccessAlert.show(context, 'El recordatorio se ha guardado correctamente.');
+        },
+      ),
     );
   }
 }
@@ -1697,11 +1704,13 @@ class ManualEntrySheet extends StatefulWidget {
     required this.method,
     this.initialSystolic,
     this.initialDiastolic,
+    this.onSaveSuccess,
   });
 
   final EntryMethod method;
   final int? initialSystolic;
   final int? initialDiastolic;
+  final VoidCallback? onSaveSuccess;
 
   @override
   State<ManualEntrySheet> createState() => _ManualEntrySheetState();
@@ -1840,11 +1849,14 @@ class _ManualEntrySheetState extends State<ManualEntrySheet> {
       ),
     );
     if (mounted) Navigator.of(context).pop();
+    widget.onSaveSuccess?.call();
   }
 }
 
 class ReminderSheet extends StatefulWidget {
-  const ReminderSheet({super.key});
+  const ReminderSheet({super.key, this.onSaveSuccess});
+
+  final VoidCallback? onSaveSuccess;
 
   @override
   State<ReminderSheet> createState() => _ReminderSheetState();
@@ -1925,6 +1937,7 @@ class _ReminderSheetState extends State<ReminderSheet> {
       ),
     );
     if (mounted) Navigator.of(context).pop();
+    widget.onSaveSuccess?.call();
   }
 }
 
@@ -2236,6 +2249,145 @@ class SheetSurface extends StatelessWidget {
               ),
               child,
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class SuccessAlert {
+  static void show(BuildContext context, String message) {
+    final overlayState = Overlay.of(context);
+    late OverlayEntry overlayEntry;
+
+    overlayEntry = OverlayEntry(
+      builder: (context) => _SuccessAlertWidget(
+        message: message,
+        onDismissed: () {
+          overlayEntry.remove();
+        },
+      ),
+    );
+
+    overlayState.insert(overlayEntry);
+  }
+}
+
+class _SuccessAlertWidget extends StatefulWidget {
+  const _SuccessAlertWidget({required this.message, required this.onDismissed});
+
+  final String message;
+  final VoidCallback onDismissed;
+
+  @override
+  State<_SuccessAlertWidget> createState() => _SuccessAlertWidgetState();
+}
+
+class _SuccessAlertWidgetState extends State<_SuccessAlertWidget>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _scaleAnimation;
+  late final Animation<double> _opacityAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 350),
+    );
+
+    _scaleAnimation = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeOutBack,
+    );
+
+    _opacityAnimation = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeIn,
+    );
+
+    _controller.forward();
+
+    // Auto dismiss after 1.8 seconds
+    Future.delayed(const Duration(milliseconds: 1800), () {
+      if (mounted) {
+        _controller.reverse().then((_) {
+          widget.onDismissed();
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: Center(
+        child: FadeTransition(
+          opacity: _opacityAnimation,
+          child: ScaleTransition(
+            scale: _scaleAnimation,
+            child: Container(
+              width: 240,
+              padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(28),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.08),
+                    blurRadius: 24,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+                border: Border.all(color: const Color(0xFFE8ECEF), width: 1.5),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFE8F8F5),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.check_circle_rounded,
+                      color: Color(0xFF008D84),
+                      size: 44,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    '¡Guardado!',
+                    style: TextStyle(
+                      fontSize: 19,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF202124),
+                      height: 1.2,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    widget.message,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: Color(0xFF5F6368),
+                      height: 1.3,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
       ),
