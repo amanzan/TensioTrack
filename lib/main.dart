@@ -368,6 +368,7 @@ class _MainShellState extends State<MainShell> {
   static const int _remindersTab = 4;
 
   int _index = 0;
+  bool _autoStartCamera = false;
 
   void _openManualEntry([
     EntryMethod method = EntryMethod.manual,
@@ -403,8 +404,20 @@ class _MainShellState extends State<MainShell> {
                 HomeScreen(
                   onRegister: _openManualEntry,
                   onOpenHistory: () => _setTab(_historyTab),
+                  onOpenCamera: () {
+                    setState(() {
+                      _autoStartCamera = true;
+                    });
+                    _setTab(_captureTab);
+                  },
                 ),
                 CaptureScreen(
+                  autoStartCamera: _autoStartCamera,
+                  onCameraStarted: () {
+                    setState(() {
+                      _autoStartCamera = false;
+                    });
+                  },
                   onManualEntry: (systolic, diastolic) =>
                       _openManualEntry(EntryMethod.camera, systolic, diastolic),
                 ),
@@ -475,10 +488,12 @@ class HomeScreen extends StatelessWidget {
     super.key,
     required this.onRegister,
     required this.onOpenHistory,
+    required this.onOpenCamera,
   });
 
   final void Function([EntryMethod method]) onRegister;
   final VoidCallback onOpenHistory;
+  final VoidCallback onOpenCamera;
 
   @override
   Widget build(BuildContext context) {
@@ -508,16 +523,131 @@ class HomeScreen extends StatelessWidget {
                 children: [
                   LastMeasurementCard(measurement: last),
                   const SizedBox(height: 18),
-                  FilledButton.icon(
-                    onPressed: onOpenHistory,
-                    icon: const Icon(Icons.list_alt_outlined),
-                    label: const Text('Historial'),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: HomeActionCard(
+                          title: 'Historial',
+                          subtitle: 'Ver registros',
+                          icon: Icons.list_alt_rounded,
+                          iconColor: const Color(0xFF4A5568),
+                          iconBgColor: const Color(0xFFEDF2F7),
+                          bgColor: Colors.white,
+                          borderColor: const Color(0xFFE3E7EB),
+                          onTap: onOpenHistory,
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: HomeActionCard(
+                          title: 'Capturar',
+                          subtitle: 'Escanear con IA',
+                          icon: Icons.photo_camera_rounded,
+                          iconColor: const Color(0xFF008D84),
+                          iconBgColor: const Color(0xFFE6F4F3),
+                          bgColor: const Color(0xFFF0FAF9),
+                          borderColor: const Color(0x66008D84),
+                          onTap: onOpenCamera,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+class HomeActionCard extends StatelessWidget {
+  const HomeActionCard({
+    super.key,
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.iconColor,
+    required this.iconBgColor,
+    required this.bgColor,
+    this.borderColor,
+    required this.onTap,
+  });
+
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final Color iconColor;
+  final Color iconBgColor;
+  final Color bgColor;
+  final Color? borderColor;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: borderColor ?? const Color(0xFFE3E7EB),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(24),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: iconBgColor,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    icon,
+                    color: iconColor,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF202124),
+                    height: 1.2,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    fontSize: 11.5,
+                    color: Color(0xFF5F6368),
+                    height: 1.3,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -646,9 +776,16 @@ class PressureValueRow extends StatelessWidget {
 }
 
 class CaptureScreen extends StatefulWidget {
-  const CaptureScreen({super.key, required this.onManualEntry});
+  const CaptureScreen({
+    super.key,
+    required this.onManualEntry,
+    this.autoStartCamera = false,
+    this.onCameraStarted,
+  });
 
   final void Function(int? systolic, int? diastolic) onManualEntry;
+  final bool autoStartCamera;
+  final VoidCallback? onCameraStarted;
 
   @override
   State<CaptureScreen> createState() => _CaptureScreenState();
@@ -661,6 +798,28 @@ class _CaptureScreenState extends State<CaptureScreen> {
   OcrResult? _ocrResult;
   bool _ocrFailed = false;
   bool _apiKeyMissing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.autoStartCamera) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _pickImage(ImageSource.camera);
+        widget.onCameraStarted?.call();
+      });
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant CaptureScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.autoStartCamera && !oldWidget.autoStartCamera) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _pickImage(ImageSource.camera);
+        widget.onCameraStarted?.call();
+      });
+    }
+  }
 
   Future<void> _pickImage(ImageSource source) async {
     final picker = ImagePicker();
