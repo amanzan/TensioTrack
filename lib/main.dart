@@ -33,36 +33,39 @@ class TensioTrackApp extends StatelessWidget {
     const teal = Color(0xFF008D84);
     const ink = Color(0xFF202124);
 
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'TensioTrack',
-      theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: teal,
-          primary: teal,
-          secondary: const Color(0xFF5E8CFF),
-          surface: const Color(0xFFF7F8FA),
-        ),
-        scaffoldBackgroundColor: const Color(0xFFF5F6F8),
-        fontFamily: 'Roboto',
-        textTheme: const TextTheme(
-          headlineLarge: TextStyle(fontWeight: FontWeight.w800, color: ink),
-          headlineMedium: TextStyle(fontWeight: FontWeight.w800, color: ink),
-          titleLarge: TextStyle(fontWeight: FontWeight.w800, color: ink),
-          titleMedium: TextStyle(fontWeight: FontWeight.w700, color: ink),
-          bodyLarge: TextStyle(color: ink),
-        ),
-        inputDecorationTheme: InputDecorationTheme(
-          filled: true,
-          fillColor: Colors.white,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(18),
-            borderSide: BorderSide.none,
+    return AppScope(
+      store: store,
+      child: MaterialApp(
+        debugShowCheckedModeBanner: false,
+        title: 'TensioTrack',
+        theme: ThemeData(
+          useMaterial3: true,
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: teal,
+            primary: teal,
+            secondary: const Color(0xFF5E8CFF),
+            surface: const Color(0xFFF7F8FA),
+          ),
+          scaffoldBackgroundColor: const Color(0xFFF5F6F8),
+          fontFamily: 'Roboto',
+          textTheme: const TextTheme(
+            headlineLarge: TextStyle(fontWeight: FontWeight.w800, color: ink),
+            headlineMedium: TextStyle(fontWeight: FontWeight.w800, color: ink),
+            titleLarge: TextStyle(fontWeight: FontWeight.w800, color: ink),
+            titleMedium: TextStyle(fontWeight: FontWeight.w700, color: ink),
+            bodyLarge: TextStyle(color: ink),
+          ),
+          inputDecorationTheme: InputDecorationTheme(
+            filled: true,
+            fillColor: Colors.white,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(18),
+              borderSide: BorderSide.none,
+            ),
           ),
         ),
+        home: const MainShell(),
       ),
-      home: AppScope(store: store, child: const MainShell()),
     );
   }
 }
@@ -649,10 +652,12 @@ class CaptureScreen extends StatefulWidget {
 }
 
 class _CaptureScreenState extends State<CaptureScreen> {
+  static const _apiKey = String.fromEnvironment('GEMINI_API_KEY');
   Uint8List? _imageBytes;
   bool _processing = false;
   OcrResult? _ocrResult;
   bool _ocrFailed = false;
+  bool _apiKeyMissing = false;
 
   Future<void> _pickImage(ImageSource source) async {
     final picker = ImagePicker();
@@ -670,7 +675,18 @@ class _CaptureScreenState extends State<CaptureScreen> {
       _processing = true;
       _ocrResult = null;
       _ocrFailed = false;
+      _apiKeyMissing = false;
     });
+
+    if (_apiKey.isEmpty) {
+      if (!mounted) return;
+      setState(() {
+        _ocrFailed = true;
+        _apiKeyMissing = true;
+        _processing = false;
+      });
+      return;
+    }
 
     try {
       final ocrService = OcrService();
@@ -700,6 +716,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
       _processing = true;
       _ocrResult = null;
       _ocrFailed = false;
+      _apiKeyMissing = false;
       // Pequeño byte array de imagen PNG 1x1 para simular el canvas de carga
       _imageBytes = base64Decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==");
     });
@@ -798,6 +815,61 @@ class _CaptureScreenState extends State<CaptureScreen> {
               icon: Icons.auto_awesome_outlined,
               title: 'Lectura Completada',
               text: 'Hemos localizado y procesado los valores de presión. Por favor, verifica que coinciden con los marcados en la imagen antes de guardarlos.',
+            )
+          else if (_ocrFailed && _apiKeyMissing)
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF9E6),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: const Color(0x33F6AA1C), width: 1.5),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(Icons.key_off_rounded, color: Color(0xFFF6AA1C), size: 28),
+                      SizedBox(width: 12),
+                      Text(
+                        'Clave API no detectada',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 17,
+                          color: Color(0xFFE08B00),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    'No se ha detectado la clave API de Gemini necesaria para el reconocimiento inteligente.\n\n'
+                    'Para solucionarlo desde Android Studio:\n'
+                    ' 1. Abre el menú superior Run > Edit Configurations...\n'
+                    ' 2. Selecciona tu configuración de Flutter (ej. main.dart).\n'
+                    ' 3. En el campo "Additional arguments", añade:\n'
+                    '    --dart-define-from-file=.env.json\n'
+                    ' 4. Haz clic en Apply y luego detén y vuelve a arrancar la aplicación.',
+                    style: TextStyle(color: Colors.black87, height: 1.4, fontSize: 13.5),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: _loadDemoImage,
+                          icon: const Icon(Icons.auto_awesome, color: Color(0xFF008D84)),
+                          label: const Text('Probar con demo interactiva', style: TextStyle(color: Color(0xFF008D84))),
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: Color(0xFF008D84)),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             )
           else if (_ocrFailed)
             Container(
