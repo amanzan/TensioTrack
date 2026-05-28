@@ -963,7 +963,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
                     ],
                   ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           Row(
             children: [
               Expanded(
@@ -1004,7 +1004,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 12),
           
           // Panel dinámico de información / estado del OCR
           if (_processing)
@@ -1129,7 +1129,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
 
           // Tarjeta de resultados detallados (solo si se detectaron valores)
           if (_ocrResult != null && !_processing) ...[
-            const SizedBox(height: 18),
+            const SizedBox(height: 10),
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
@@ -1193,7 +1193,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
             ),
           ],
 
-          const SizedBox(height: 18),
+          const SizedBox(height: 12),
           
           // Botón de acción principal adaptativo
           FilledButton.icon(
