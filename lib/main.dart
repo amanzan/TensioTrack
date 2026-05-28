@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
@@ -12,12 +13,18 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
 import 'services/ocr_service.dart';
+import 'services/notification_service.dart';
 
 const _uuid = Uuid();
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('es_ES');
+  
+  // Inicializar notificaciones locales offline
+  final notificationService = NotificationService();
+  await notificationService.init();
+
   final store = TensioStore();
   await store.load();
   runApp(TensioTrackApp(store: store));
@@ -243,26 +250,63 @@ class TensioStore extends ChangeNotifier {
     _reminders.add(reminder);
     _reminders.sort((a, b) => a.timeText.compareTo(b.timeText));
     await _saveReminders();
+    
+    // Programar notificación si está activo
+    if (reminder.enabled) {
+      await NotificationService().scheduleDailyNotification(
+        id: reminder.id.hashCode,
+        title: reminder.title,
+        body: 'Es hora de tu recordatorio "${reminder.title}". ¡Tómate la tensión!',
+        hour: reminder.hour,
+        minute: reminder.minute,
+        repeatLabel: reminder.repeatLabel,
+      );
+    }
+    
     notifyListeners();
   }
 
   Future<void> toggleReminder(String id, bool enabled) async {
     final index = _reminders.indexWhere((reminder) => reminder.id == id);
     if (index == -1) return;
-    _reminders[index] = _reminders[index].copyWith(enabled: enabled);
+    final oldReminder = _reminders[index];
+    _reminders[index] = oldReminder.copyWith(enabled: enabled);
     await _saveReminders();
+    
+    // Programar o cancelar notificación según corresponda
+    if (enabled) {
+      await NotificationService().scheduleDailyNotification(
+        id: oldReminder.id.hashCode,
+        title: oldReminder.title,
+        body: 'Es hora de tu recordatorio "${oldReminder.title}". ¡Tómate la tensión!',
+        hour: oldReminder.hour,
+        minute: oldReminder.minute,
+        repeatLabel: oldReminder.repeatLabel,
+      );
+    } else {
+      await NotificationService().cancelNotification(oldReminder.id.hashCode);
+    }
+    
     notifyListeners();
   }
 
   Future<void> deleteReminder(String id) async {
     _reminders.removeWhere((reminder) => reminder.id == id);
     await _saveReminders();
+    
+    // Cancelar notificación programada
+    await NotificationService().cancelNotification(id.hashCode);
+    
     notifyListeners();
   }
 
   Future<void> clearAllReminders() async {
     _reminders.clear();
     await _saveReminders();
+    
+    // Cancelar todas las notificaciones
+    await NotificationService().cancelAllNotifications();
+    
     notifyListeners();
   }
 
@@ -381,6 +425,40 @@ class _MainShellState extends State<MainShell> {
 
   int _index = 0;
   bool _autoStartCamera = false;
+  StreamSubscription<String?>? _notificationSub;
+
+  @override
+  void initState() {
+    super.initState();
+
+    // 1. Escuchar clicks de notificación si la app está en segundo plano o activa
+    _notificationSub = NotificationService().onNotificationClick.listen((payload) {
+      if (payload == 'capture') {
+        _switchToCaptureAndCamera();
+      }
+    });
+
+    // 2. Comprobar si la app se abrió en frío mediante una notificación
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (NotificationService().initialPayload == 'capture') {
+        _switchToCaptureAndCamera();
+        NotificationService().consumeInitialPayload();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _notificationSub?.cancel();
+    super.dispose();
+  }
+
+  void _switchToCaptureAndCamera() {
+    setState(() {
+      _autoStartCamera = true;
+      _index = _captureTab;
+    });
+  }
 
   void _openManualEntry([
     EntryMethod method = EntryMethod.manual,
