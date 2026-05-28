@@ -254,6 +254,18 @@ class TensioStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> deleteReminder(String id) async {
+    _reminders.removeWhere((reminder) => reminder.id == id);
+    await _saveReminders();
+    notifyListeners();
+  }
+
+  Future<void> clearAllReminders() async {
+    _reminders.clear();
+    await _saveReminders();
+    notifyListeners();
+  }
+
   void _sort() {
     _measurements.sort((a, b) => b.createdAt.compareTo(a.createdAt));
   }
@@ -1803,6 +1815,40 @@ class DistributionCard extends StatelessWidget {
 class RemindersScreen extends StatelessWidget {
   const RemindersScreen({super.key});
 
+  void _confirmClearAll(BuildContext context, TensioStore store) {
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Color(0xFFE55B5B), size: 28),
+            SizedBox(width: 12),
+            Text('¿Borrar todos?'),
+          ],
+        ),
+        content: const Text(
+          'Esta acción eliminará todos los recordatorios guardados. ¿Estás seguro de que deseas continuar?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancelar', style: TextStyle(color: Colors.black54)),
+          ),
+          FilledButton(
+            onPressed: () {
+              store.clearAllReminders();
+              Navigator.of(context).pop();
+              SuccessAlert.show(context, 'Todos los recordatorios han sido eliminados.');
+            },
+            style: FilledButton.styleFrom(backgroundColor: const Color(0xFFE55B5B)),
+            child: const Text('Confirmar'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final store = AppScope.of(context);
@@ -1810,6 +1856,13 @@ class RemindersScreen extends StatelessWidget {
     return ScreenFrame(
       title: 'Recordatorios',
       subtitle: 'Avisos de medición',
+      trailing: store.reminders.isNotEmpty
+          ? TextButton.icon(
+              onPressed: () => _confirmClearAll(context, store),
+              icon: const Icon(Icons.delete_sweep_outlined, color: Color(0xFFE55B5B), size: 20),
+              label: const Text('Limpiar todo', style: TextStyle(color: Color(0xFFE55B5B), fontWeight: FontWeight.bold)),
+            )
+          : null,
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
         children: [
@@ -1862,8 +1915,43 @@ class ReminderTile extends StatelessWidget {
   final AppReminder reminder;
   final ValueChanged<bool> onChanged;
 
+  void _confirmDelete(BuildContext context, TensioStore store) {
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+        title: const Row(
+          children: [
+            Icon(Icons.delete_forever_rounded, color: Color(0xFFE55B5B), size: 28),
+            SizedBox(width: 12),
+            Text('¿Borrar aviso?'),
+          ],
+        ),
+        content: Text(
+          '¿Estás seguro de que deseas eliminar el recordatorio "${reminder.title}"?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancelar', style: TextStyle(color: Colors.black54)),
+          ),
+          FilledButton(
+            onPressed: () {
+              store.deleteReminder(reminder.id);
+              Navigator.of(context).pop();
+              SuccessAlert.show(context, 'El recordatorio ha sido eliminado.');
+            },
+            style: FilledButton.styleFrom(backgroundColor: const Color(0xFFE55B5B)),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final store = AppScope.of(context);
     final icon = reminder.title.toLowerCase().contains('noche')
         ? Icons.nightlight_round
         : reminder.title.toLowerCase().contains('medio')
@@ -1886,7 +1974,17 @@ class ReminderTile extends StatelessWidget {
           style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 20),
         ),
         subtitle: Text('${reminder.timeText} · ${reminder.repeatLabel}'),
-        trailing: Switch(value: reminder.enabled, onChanged: onChanged),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.delete_outline_rounded, color: Color(0xFFE55B5B), size: 22),
+              onPressed: () => _confirmDelete(context, store),
+              tooltip: 'Borrar recordatorio',
+            ),
+            Switch(value: reminder.enabled, onChanged: onChanged),
+          ],
+        ),
       ),
     );
   }
@@ -2141,11 +2239,13 @@ class ScreenFrame extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.child,
+    this.trailing,
   });
 
   final String title;
   final String subtitle;
   final Widget child;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -2158,15 +2258,24 @@ class ScreenFrame extends StatelessWidget {
             color: Colors.white,
             border: Border(bottom: BorderSide(color: Color(0xFFE8EAED))),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Text(title, style: Theme.of(context).textTheme.headlineMedium),
-              const SizedBox(height: 2),
-              Text(
-                subtitle,
-                style: const TextStyle(color: Colors.black54, fontSize: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: Theme.of(context).textTheme.headlineMedium),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(color: Colors.black54, fontSize: 16),
+                    ),
+                  ],
+                ),
               ),
+              if (trailing != null) trailing!,
             ],
           ),
         ),
