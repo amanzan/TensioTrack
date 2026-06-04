@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -932,7 +933,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
       _ocrError = null;
     });
 
-    if (_apiKey.isEmpty) {
+    if (_apiKey.isEmpty && kIsWeb) {
       if (!mounted) return;
       setState(() {
         _ocrFailed = true;
