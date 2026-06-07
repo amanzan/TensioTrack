@@ -918,8 +918,8 @@ class _CaptureScreenState extends State<CaptureScreen> {
     final image = await picker.pickImage(
       source: source,
       imageQuality: 80,
-      maxWidth: 1280,
-      maxHeight: 1280,
+      maxWidth: 768,
+      maxHeight: 768,
     );
     if (image == null) return;
 
