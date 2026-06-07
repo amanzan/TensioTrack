@@ -14,7 +14,7 @@ class GeminiWebOcrService implements OcrService {
 
   @override
   Future<OcrResult?> recognizePressure(
-      String imagePath, Uint8List imageBytes) async {
+      String imagePath, Uint8List imageBytes, {bool useAlternate = false}) async {
     if (_apiKey.isEmpty) {
       debugPrint(
         'TensioTrack Web: API key de Gemini no configurada. '

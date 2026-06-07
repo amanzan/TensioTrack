@@ -1,0 +1,1277 @@
+======================================================
+SWEEP DE PADDING PARA TESSERACT OCR (TODAS LAS IMÁGENES)
+======================================================
+
+------------------------------------------------------
+FOTO: medida132-87.png | Esperado: SYS=132, DIA=87
+------------------------------------------------------
+  Conf 0 [Pad: 0.00]:
+    SYS: Extraído: 132 (OK)
+    DIA: Extraído: 97 (FAIL)
+  Conf 1 [Pad: 0.02]:
+    SYS: Extraído: 132 (OK)
+    DIA: Extraído: 87 (OK)
+  Conf 2 [Pad: 0.04]:
+    SYS: Extraído: 132 (OK)
+    DIA: Extraído: 87 (OK)
+  Conf 3 [Pad: 0.06]:
+    SYS: Extraído: 132 (OK)
+    DIA: Extraído: 87 (OK)
+  Conf 4 [Pad: 0.08]:
+    SYS: Extraído: 132 (OK)
+    DIA: Extraído: 87 (OK)
+  Conf 5 [Pad: 0.10]:
+    SYS: Extraído: 132 (OK)
+    DIA: Extraído: 87 (OK)
+  Conf 6 [Pad: 0.12]:
+    SYS: Extraído: 132 (OK)
+    DIA: Extraído: 87 (OK)
+  Conf 7 [Pad: 0.15]:
+    SYS: Extraído: 132 (OK)
+    DIA: Extraído: 87 (OK)
+
+------------------------------------------------------
+FOTO: IMG_20231122_093859.jpg | Esperado: SYS=136, DIA=101
+------------------------------------------------------
+  Conf 0 [Pad: 0.00]:
+    SYS: Extraído: 136 (OK)
+    DIA: Extraído: 0 (FAIL)
+  Conf 1 [Pad: 0.02]:
+    SYS: Extraído: 136 (OK)
+    DIA: Extraído: 111 (FAIL)
+  Conf 2 [Pad: 0.04]:
+    SYS: Extraído: 136 (OK)
+    DIA: Extraído: 0 (FAIL)
+  Conf 3 [Pad: 0.06]:
+    SYS: Extraído: 136 (OK)
+    DIA: Extraído: 0 (FAIL)
+  Conf 4 [Pad: 0.08]:
+    SYS: Extraído: 136 (OK)
+    DIA: Extraído: 0 (FAIL)
+  Conf 5 [Pad: 0.10]:
+    SYS: Extraído: 136 (OK)
+    DIA: Extraído: 101 (OK)
+  Conf 6 [Pad: 0.12]:
+    SYS: Extraído: 136 (OK)
+    DIA: Extraído: 101 (OK)
+  Conf 7 [Pad: 0.15]:
+    SYS: Extraído: 136 (OK)
+    DIA: Extraído: 101 (OK)
+
+------------------------------------------------------
+FOTO: IMG_20231123_170416.jpg | Esperado: SYS=134, DIA=102
+------------------------------------------------------
+  Conf 0 [Pad: 0.00]:
+    SYS: Extraído: 134 (OK)
+    DIA: Extraído: 0 (FAIL)
+  Conf 1 [Pad: 0.02]:
+    SYS: Extraído: 134 (OK)
+    DIA: Extraído: 0 (FAIL)
+  Conf 2 [Pad: 0.04]:
+    SYS: Extraído: 134 (OK)
+    DIA: Extraído: 0 (FAIL)
+  Conf 3 [Pad: 0.06]:
+    SYS: Extraído: 134 (OK)
+    DIA: Extraído: 0 (FAIL)
+  Conf 4 [Pad: 0.08]:
+    SYS: Extraído: 134 (OK)
+    DIA: Extraído: 0 (FAIL)
+  Conf 5 [Pad: 0.10]:
+    SYS: Extraído: 134 (OK)
+    DIA: Extraído: 0 (FAIL)
+  Conf 6 [Pad: 0.12]:
+    SYS: Extraído: 134 (OK)
+    DIA: Extraído: 0 (FAIL)
+  Conf 7 [Pad: 0.15]:
+    SYS: Extraído: 134 (OK)
+    DIA: Extraído: 0 (FAIL)
+
+------------------------------------------------------
+FOTO: medida 111 79.png | Esperado: SYS=111, DIA=79
+------------------------------------------------------
+  Conf 0 [Pad: 0.00]:
+    SYS: Extraído: 0 (FAIL)
+    DIA: Extraído: 79 (OK)
+  Conf 1 [Pad: 0.02]:
+    SYS: Extraído: 0 (FAIL)
+    DIA: Extraído: 79 (OK)
+  Conf 2 [Pad: 0.04]:
+    SYS: Extraído: 0 (FAIL)
+    DIA: Extraído: 79 (OK)
+  Conf 3 [Pad: 0.06]:
+    SYS: Extraído: 111 (OK)
+    DIA: Extraído: 79 (OK)
+  Conf 4 [Pad: 0.08]:
+    SYS: Extraído: 111 (OK)
+    DIA: Extraído: 179 (FAIL)
+  Conf 5 [Pad: 0.10]:
+    SYS: Extraído: 71 (FAIL)
+    DIA: Extraído: 179 (FAIL)
+  Conf 6 [Pad: 0.12]:
+    SYS: Extraído: 171 (FAIL)
+    DIA: Extraído: 79 (OK)
+  Conf 7 [Pad: 0.15]:
+    SYS: Extraído: 111 (OK)
+    DIA: Extraído: 79 (OK)
+
+------------------------------------------------------
+FOTO: IMG_20231123_111837.jpg | Esperado: SYS=153, DIA=107
+------------------------------------------------------
+  Conf 0 [Pad: 0.00]:
+    SYS: Extraído: 153 (OK)
+    DIA: Extraído: 107 (OK)
+  Conf 1 [Pad: 0.02]:
+    SYS: Extraído: 153 (OK)
+    DIA: Extraído: 101 (FAIL)
+  Conf 2 [Pad: 0.04]:
+    SYS: Extraído: 153 (OK)
+    DIA: Extraído: 0 (FAIL)
+  Conf 3 [Pad: 0.06]:
+    SYS: Extraído: 153 (OK)
+    DIA: Extraído: 107 (OK)
+  Conf 4 [Pad: 0.08]:
+    SYS: Extraído: 153 (OK)
+    DIA: Extraído: 107 (OK)
+  Conf 5 [Pad: 0.10]:
+    SYS: Extraído: 153 (OK)
+    DIA: Extraído: 107 (OK)
+  Conf 6 [Pad: 0.12]:
+    SYS: Extraído: 153 (OK)
+    DIA: Extraído: 107 (OK)
+  Conf 7 [Pad: 0.15]:
+    SYS: Extraído: 153 (OK)
+    DIA: Extraído: 107 (OK)
+
+------------------------------------------------------
+FOTO: PXL_20260604_174948988.MP.jpg | Esperado: SYS=105, DIA=76
+------------------------------------------------------
+  Conf 0 [Pad: 0.00]:
+    SYS: Extraído: 0 (FAIL)
+    DIA: Extraído: 76 (OK)
+  Conf 1 [Pad: 0.02]:
+    SYS: Extraído: 0 (FAIL)
+    DIA: Extraído: 76 (OK)
+  Conf 2 [Pad: 0.04]:
+    SYS: Extraído: 0 (FAIL)
+    DIA: Extraído: 76 (OK)
+  Conf 3 [Pad: 0.06]:
+    SYS: Extraído: 0 (FAIL)
+    DIA: Extraído: 76 (OK)
+  Conf 4 [Pad: 0.08]:
+    SYS: Extraído: 0 (FAIL)
+    DIA: Extraído: 76 (OK)
+  Conf 5 [Pad: 0.10]:
+    SYS: Extraído: 0 (FAIL)
+    DIA: Extraído: 76 (OK)
+  Conf 6 [Pad: 0.12]:
+    SYS: Extraído: 0 (FAIL)
+    DIA: Extraído: 76 (OK)
+  Conf 7 [Pad: 0.15]:
+    SYS: Extraído: 0 (FAIL)
+    DIA: Extraído: 176 (FAIL)
+
+------------------------------------------------------
+FOTO: medida 118 64.png | Esperado: SYS=118, DIA=64
+------------------------------------------------------
+  Conf 0 [Pad: 0.00]:
+    SYS: Extraído: 118 (OK)
+    DIA: Extraído: 64 (OK)
+  Conf 1 [Pad: 0.02]:
+    SYS: Extraído: 118 (OK)
+    DIA: Extraído: 64 (OK)
+  Conf 2 [Pad: 0.04]:
+    SYS: Extraído: 118 (OK)
+    DIA: Extraído: 64 (OK)
+  Conf 3 [Pad: 0.06]:
+    SYS: Extraído: 118 (OK)
+    DIA: Extraído: 64 (OK)
+  Conf 4 [Pad: 0.08]:
+    SYS: Extraído: 118 (OK)
+    DIA: Extraído: 64 (OK)
+  Conf 5 [Pad: 0.10]:
+    SYS: Extraído: 118 (OK)
+    DIA: Extraído: 64 (OK)
+  Conf 6 [Pad: 0.12]:
+    SYS: Extraído: 118 (OK)
+    DIA: Extraído: 164 (FAIL)
+  Conf 7 [Pad: 0.15]:
+    SYS: Extraído: 118 (OK)
+    DIA: Extraído: 164 (FAIL)
+
+------------------------------------------------------
+FOTO: IMG_20231122_184312.jpg | Esperado: SYS=137, DIA=103
+------------------------------------------------------
+  Conf 0 [Pad: 0.00]:
+    SYS: Extraído: 131 (FAIL)
+    DIA: Extraído: 103 (OK)
+  Conf 1 [Pad: 0.02]:
+    SYS: Extraído: 0 (FAIL)
+    DIA: Extraído: 103 (OK)
+  Conf 2 [Pad: 0.04]:
+    SYS: Extraído: 231 (FAIL)
+    DIA: Extraído: 103 (OK)
+  Conf 3 [Pad: 0.06]:
+    SYS: Extraído: 121 (FAIL)
+    DIA: Extraído: 103 (OK)
+  Conf 4 [Pad: 0.08]:
+    SYS: Extraído: 131 (FAIL)
+    DIA: Extraído: 103 (OK)
+  Conf 5 [Pad: 0.10]:
+    SYS: Extraído: 131 (FAIL)
+    DIA: Extraído: 103 (OK)
+  Conf 6 [Pad: 0.12]:
+    SYS: Extraído: 111 (FAIL)
+    DIA: Extraído: 103 (OK)
+  Conf 7 [Pad: 0.15]:
+    SYS: Extraído: 131 (FAIL)
+    DIA: Extraído: 103 (OK)
+
+------------------------------------------------------
+FOTO: PXL_20260604_172608283.MP.jpg | Esperado: SYS=101, DIA=72
+------------------------------------------------------
+  Conf 0 [Pad: 0.00]:
+    SYS: Extraído: 101 (OK)
+    DIA: Extraído: 72 (OK)
+  Conf 1 [Pad: 0.02]:
+    SYS: Extraído: 101 (OK)
+    DIA: Extraído: 72 (OK)
+  Conf 2 [Pad: 0.04]:
+    SYS: Extraído: 101 (OK)
+    DIA: Extraído: 72 (OK)
+  Conf 3 [Pad: 0.06]:
+    SYS: Extraído: 101 (OK)
+    DIA: Extraído: 72 (OK)
+  Conf 4 [Pad: 0.08]:
+    SYS: Extraído: 101 (OK)
+    DIA: Extraído: 72 (OK)
+  Conf 5 [Pad: 0.10]:
+    SYS: Extraído: 101 (OK)
+    DIA: Extraído: 72 (OK)
+  Conf 6 [Pad: 0.12]:
+    SYS: Extraído: 101 (OK)
+    DIA: Extraído: 172 (FAIL)
+  Conf 7 [Pad: 0.15]:
+    SYS: Extraído: 101 (OK)
+    DIA: Extraído: 172 (FAIL)
+
+------------------------------------------------------
+FOTO: medida 156 80.png | Esperado: SYS=156, DIA=80
+------------------------------------------------------
+  Conf 0 [Pad: 0.00]:
+    SYS: Extraído: 156 (OK)
+    DIA: Extraído: 80 (OK)
+  Conf 1 [Pad: 0.02]:
+    SYS: Extraído: 156 (OK)
+    DIA: Extraído: 80 (OK)
+  Conf 2 [Pad: 0.04]:
+    SYS: Extraído: 156 (OK)
+    DIA: Extraído: 80 (OK)
+  Conf 3 [Pad: 0.06]:
+    SYS: Extraído: 156 (OK)
+    DIA: Extraído: 80 (OK)
+  Conf 4 [Pad: 0.08]:
+    SYS: Extraído: 156 (OK)
+    DIA: Extraído: 80 (OK)
+  Conf 5 [Pad: 0.10]:
+    SYS: Extraído: 156 (OK)
+    DIA: Extraído: 80 (OK)
+  Conf 6 [Pad: 0.12]:
+    SYS: Extraído: 156 (OK)
+    DIA: Extraído: 180 (FAIL)
+  Conf 7 [Pad: 0.15]:
+    SYS: Extraído: 156 (OK)
+    DIA: Extraído: 180 (FAIL)
+
+------------------------------------------------------
+FOTO: PXL_20260604_170129470.MP.jpg | Esperado: SYS=107, DIA=74
+------------------------------------------------------
+  Conf 0 [Pad: 0.00]:
+    SYS: Extraído: 107 (OK)
+    DIA: Extraído: 74 (OK)
+  Conf 1 [Pad: 0.02]:
+    SYS: Extraído: 107 (OK)
+    DIA: Extraído: 74 (OK)
+  Conf 2 [Pad: 0.04]:
+    SYS: Extraído: 107 (OK)
+    DIA: Extraído: 74 (OK)
+  Conf 3 [Pad: 0.06]:
+    SYS: Extraído: 107 (OK)
+    DIA: Extraído: 74 (OK)
+  Conf 4 [Pad: 0.08]:
+    SYS: Extraído: 107 (OK)
+    DIA: Extraído: 74 (OK)
+  Conf 5 [Pad: 0.10]:
+    SYS: Extraído: 107 (OK)
+    DIA: Extraído: 74 (OK)
+  Conf 6 [Pad: 0.12]:
+    SYS: Extraído: 107 (OK)
+    DIA: Extraído: 174 (FAIL)
+  Conf 7 [Pad: 0.15]:
+    SYS: Extraído: 107 (OK)
+    DIA: Extraído: 74 (OK)
+
+------------------------------------------------------
+FOTO: IMG_20231127_114818.jpg | Esperado: SYS=143, DIA=103
+------------------------------------------------------
+  Conf 0 [Pad: 0.00]:
+    SYS: Extraído: 143 (OK)
+    DIA: Extraído: 0 (FAIL)
+  Conf 1 [Pad: 0.02]:
+    SYS: Extraído: 143 (OK)
+    DIA: Extraído: 104 (FAIL)
+  Conf 2 [Pad: 0.04]:
+    SYS: Extraído: 143 (OK)
+    DIA: Extraído: 0 (FAIL)
+  Conf 3 [Pad: 0.06]:
+    SYS: Extraído: 143 (OK)
+    DIA: Extraído: 0 (FAIL)
+  Conf 4 [Pad: 0.08]:
+    SYS: Extraído: 143 (OK)
+    DIA: Extraído: 0 (FAIL)
+  Conf 5 [Pad: 0.10]:
+    SYS: Extraído: 143 (OK)
+    DIA: Extraído: 0 (FAIL)
+  Conf 6 [Pad: 0.12]:
+    SYS: Extraído: 143 (OK)
+    DIA: Extraído: 40 (FAIL)
+  Conf 7 [Pad: 0.15]:
+    SYS: Extraído: 143 (OK)
+    DIA: Extraído: 40 (FAIL)
+
+------------------------------------------------------
+FOTO: IMG_20231123_170313.jpg | Esperado: SYS=139, DIA=105
+------------------------------------------------------
+  Conf 0 [Pad: 0.00]:
+    SYS: Extraído: 139 (OK)
+    DIA: Extraído: 105 (OK)
+  Conf 1 [Pad: 0.02]:
+    SYS: Extraído: 139 (OK)
+    DIA: Extraído: 105 (OK)
+  Conf 2 [Pad: 0.04]:
+    SYS: Extraído: 139 (OK)
+    DIA: Extraído: 105 (OK)
+  Conf 3 [Pad: 0.06]:
+    SYS: Extraído: 139 (OK)
+    DIA: Extraído: 105 (OK)
+  Conf 4 [Pad: 0.08]:
+    SYS: Extraído: 139 (OK)
+    DIA: Extraído: 105 (OK)
+  Conf 5 [Pad: 0.10]:
+    SYS: Extraído: 139 (OK)
+    DIA: Extraído: 105 (OK)
+  Conf 6 [Pad: 0.12]:
+    SYS: Extraído: 139 (OK)
+    DIA: Extraído: 105 (OK)
+  Conf 7 [Pad: 0.15]:
+    SYS: Extraído: 139 (OK)
+    DIA: Extraído: 105 (OK)
+
+------------------------------------------------------
+FOTO: medida 123 81.png | Esperado: SYS=123, DIA=81
+------------------------------------------------------
+  Conf 0 [Pad: 0.00]:
+    SYS: Extraído: 123 (OK)
+    DIA: Extraído: 91 (FAIL)
+  Conf 1 [Pad: 0.02]:
+    SYS: Extraído: 123 (OK)
+    DIA: Extraído: 91 (FAIL)
+  Conf 2 [Pad: 0.04]:
+    SYS: Extraído: 123 (OK)
+    DIA: Extraído: 91 (FAIL)
+  Conf 3 [Pad: 0.06]:
+    SYS: Extraído: 123 (OK)
+    DIA: Extraído: 81 (OK)
+  Conf 4 [Pad: 0.08]:
+    SYS: Extraído: 123 (OK)
+    DIA: Extraído: 91 (FAIL)
+  Conf 5 [Pad: 0.10]:
+    SYS: Extraído: 123 (OK)
+    DIA: Extraído: 81 (OK)
+  Conf 6 [Pad: 0.12]:
+    SYS: Extraído: 123 (OK)
+    DIA: Extraído: 81 (OK)
+  Conf 7 [Pad: 0.15]:
+    SYS: Extraído: 123 (OK)
+    DIA: Extraído: 81 (OK)
+
+------------------------------------------------------
+FOTO: PXL_20260602_175734683.MP.jpg | Esperado: SYS=120, DIA=83
+------------------------------------------------------
+  Conf 0 [Pad: 0.00]:
+    SYS: Extraído: 120 (OK)
+    DIA: Extraído: 83 (OK)
+  Conf 1 [Pad: 0.02]:
+    SYS: Extraído: 120 (OK)
+    DIA: Extraído: 83 (OK)
+  Conf 2 [Pad: 0.04]:
+    SYS: Extraído: 120 (OK)
+    DIA: Extraído: 83 (OK)
+  Conf 3 [Pad: 0.06]:
+    SYS: Extraído: 120 (OK)
+    DIA: Extraído: 83 (OK)
+  Conf 4 [Pad: 0.08]:
+    SYS: Extraído: 120 (OK)
+    DIA: Extraído: 83 (OK)
+  Conf 5 [Pad: 0.10]:
+    SYS: Extraído: 120 (OK)
+    DIA: Extraído: 83 (OK)
+  Conf 6 [Pad: 0.12]:
+    SYS: Extraído: 120 (OK)
+    DIA: Extraído: 183 (FAIL)
+  Conf 7 [Pad: 0.15]:
+    SYS: Extraído: 120 (OK)
+    DIA: Extraído: 183 (FAIL)
+
+------------------------------------------------------
+FOTO: IMG_20231122_184200.jpg | Esperado: SYS=141, DIA=109
+------------------------------------------------------
+  Conf 0 [Pad: 0.00]:
+    SYS: Extraído: 141 (OK)
+    DIA: Extraído: 109 (OK)
+  Conf 1 [Pad: 0.02]:
+    SYS: Extraído: 141 (OK)
+    DIA: Extraído: 109 (OK)
+  Conf 2 [Pad: 0.04]:
+    SYS: Extraído: 141 (OK)
+    DIA: Extraído: 109 (OK)
+  Conf 3 [Pad: 0.06]:
+    SYS: Extraído: 141 (OK)
+    DIA: Extraído: 109 (OK)
+  Conf 4 [Pad: 0.08]:
+    SYS: Extraído: 141 (OK)
+    DIA: Extraído: 109 (OK)
+  Conf 5 [Pad: 0.10]:
+    SYS: Extraído: 141 (OK)
+    DIA: Extraído: 109 (OK)
+  Conf 6 [Pad: 0.12]:
+    SYS: Extraído: 141 (OK)
+    DIA: Extraído: 109 (OK)
+  Conf 7 [Pad: 0.15]:
+    SYS: Extraído: 141 (OK)
+    DIA: Extraído: 109 (OK)
+
+------------------------------------------------------
+FOTO: medida 119 90.png | Esperado: SYS=119, DIA=90
+------------------------------------------------------
+  Conf 0 [Pad: 0.00]:
+    SYS: Extraído: 119 (OK)
+    DIA: Extraído: 91 (FAIL)
+  Conf 1 [Pad: 0.02]:
+    SYS: Extraído: 119 (OK)
+    DIA: Extraído: 91 (FAIL)
+  Conf 2 [Pad: 0.04]:
+    SYS: Extraído: 119 (OK)
+    DIA: Extraído: 91 (FAIL)
+  Conf 3 [Pad: 0.06]:
+    SYS: Extraído: 119 (OK)
+    DIA: Extraído: 31 (FAIL)
+  Conf 4 [Pad: 0.08]:
+    SYS: Extraído: 119 (OK)
+    DIA: Extraído: 90 (OK)
+  Conf 5 [Pad: 0.10]:
+    SYS: Extraído: 119 (OK)
+    DIA: Extraído: 90 (OK)
+  Conf 6 [Pad: 0.12]:
+    SYS: Extraído: 119 (OK)
+    DIA: Extraído: 90 (OK)
+  Conf 7 [Pad: 0.15]:
+    SYS: Extraído: 119 (OK)
+    DIA: Extraído: 90 (OK)
+
+------------------------------------------------------
+FOTO: medida 121 82.png | Esperado: SYS=121, DIA=82
+------------------------------------------------------
+  Conf 0 [Pad: 0.00]:
+    SYS: Extraído: 121 (OK)
+    DIA: Extraído: 92 (FAIL)
+  Conf 1 [Pad: 0.02]:
+    SYS: Extraído: 121 (OK)
+    DIA: Extraído: 82 (OK)
+  Conf 2 [Pad: 0.04]:
+    SYS: Extraído: 121 (OK)
+    DIA: Extraído: 82 (OK)
+  Conf 3 [Pad: 0.06]:
+    SYS: Extraído: 127 (FAIL)
+    DIA: Extraído: 82 (OK)
+  Conf 4 [Pad: 0.08]:
+    SYS: Extraído: 127 (FAIL)
+    DIA: Extraído: 82 (OK)
+  Conf 5 [Pad: 0.10]:
+    SYS: Extraído: 127 (FAIL)
+    DIA: Extraído: 82 (OK)
+  Conf 6 [Pad: 0.12]:
+    SYS: Extraído: 127 (FAIL)
+    DIA: Extraído: 82 (OK)
+  Conf 7 [Pad: 0.15]:
+    SYS: Extraído: 127 (FAIL)
+    DIA: Extraído: 82 (OK)
+
+------------------------------------------------------
+FOTO: medida 168 86.png | Esperado: SYS=168, DIA=86
+------------------------------------------------------
+  Conf 0 [Pad: 0.00]:
+    SYS: Extraído: 168 (OK)
+    DIA: Extraído: 86 (OK)
+  Conf 1 [Pad: 0.02]:
+    SYS: Extraído: 168 (OK)
+    DIA: Extraído: 86 (OK)
+  Conf 2 [Pad: 0.04]:
+    SYS: Extraído: 168 (OK)
+    DIA: Extraído: 86 (OK)
+  Conf 3 [Pad: 0.06]:
+    SYS: Extraído: 168 (OK)
+    DIA: Extraído: 86 (OK)
+  Conf 4 [Pad: 0.08]:
+    SYS: Extraído: 168 (OK)
+    DIA: Extraído: 86 (OK)
+  Conf 5 [Pad: 0.10]:
+    SYS: Extraído: 168 (OK)
+    DIA: Extraído: 86 (OK)
+  Conf 6 [Pad: 0.12]:
+    SYS: Extraído: 168 (OK)
+    DIA: Extraído: 86 (OK)
+  Conf 7 [Pad: 0.15]:
+    SYS: Extraído: 168 (OK)
+    DIA: Extraído: 86 (OK)
+
+------------------------------------------------------
+FOTO: IMG_20231123_111933.jpg | Esperado: SYS=135, DIA=103
+------------------------------------------------------
+  Conf 0 [Pad: 0.00]:
+    SYS: Extraído: 135 (OK)
+    DIA: Extraído: 103 (OK)
+  Conf 1 [Pad: 0.02]:
+    SYS: Extraído: 135 (OK)
+    DIA: Extraído: 103 (OK)
+  Conf 2 [Pad: 0.04]:
+    SYS: Extraído: 135 (OK)
+    DIA: Extraído: 103 (OK)
+  Conf 3 [Pad: 0.06]:
+    SYS: Extraído: 135 (OK)
+    DIA: Extraído: 103 (OK)
+  Conf 4 [Pad: 0.08]:
+    SYS: Extraído: 135 (OK)
+    DIA: Extraído: 103 (OK)
+  Conf 5 [Pad: 0.10]:
+    SYS: Extraído: 135 (OK)
+    DIA: Extraído: 103 (OK)
+  Conf 6 [Pad: 0.12]:
+    SYS: Extraído: 135 (OK)
+    DIA: Extraído: 103 (OK)
+  Conf 7 [Pad: 0.15]:
+    SYS: Extraído: 135 (OK)
+    DIA: Extraído: 103 (OK)
+
+------------------------------------------------------
+FOTO: IMG_20231122_231613.jpg | Esperado: SYS=133, DIA=93
+------------------------------------------------------
+  Conf 0 [Pad: 0.00]:
+    SYS: Extraído: 133 (OK)
+    DIA: Extraído: 93 (OK)
+  Conf 1 [Pad: 0.02]:
+    SYS: Extraído: 133 (OK)
+    DIA: Extraído: 93 (OK)
+  Conf 2 [Pad: 0.04]:
+    SYS: Extraído: 133 (OK)
+    DIA: Extraído: 93 (OK)
+  Conf 3 [Pad: 0.06]:
+    SYS: Extraído: 133 (OK)
+    DIA: Extraído: 93 (OK)
+  Conf 4 [Pad: 0.08]:
+    SYS: Extraído: 133 (OK)
+    DIA: Extraído: 93 (OK)
+  Conf 5 [Pad: 0.10]:
+    SYS: Extraído: 133 (OK)
+    DIA: Extraído: 193 (FAIL)
+  Conf 6 [Pad: 0.12]:
+    SYS: Extraído: 133 (OK)
+    DIA: Extraído: 193 (FAIL)
+  Conf 7 [Pad: 0.15]:
+    SYS: Extraído: 133 (OK)
+    DIA: Extraído: 193 (FAIL)
+
+------------------------------------------------------
+FOTO: IMG_20231122_143806.jpg | Esperado: SYS=151, DIA=108
+------------------------------------------------------
+  Conf 0 [Pad: 0.00]:
+    SYS: Extraído: 151 (OK)
+    DIA: Extraído: 0 (FAIL)
+  Conf 1 [Pad: 0.02]:
+    SYS: Extraído: 151 (OK)
+    DIA: Extraído: 0 (FAIL)
+  Conf 2 [Pad: 0.04]:
+    SYS: Extraído: 151 (OK)
+    DIA: Extraído: 0 (FAIL)
+  Conf 3 [Pad: 0.06]:
+    SYS: Extraído: 151 (OK)
+    DIA: Extraído: 0 (FAIL)
+  Conf 4 [Pad: 0.08]:
+    SYS: Extraído: 151 (OK)
+    DIA: Extraído: 0 (FAIL)
+  Conf 5 [Pad: 0.10]:
+    SYS: Extraído: 151 (OK)
+    DIA: Extraído: 108 (OK)
+  Conf 6 [Pad: 0.12]:
+    SYS: Extraído: 151 (OK)
+    DIA: Extraído: 108 (OK)
+  Conf 7 [Pad: 0.15]:
+    SYS: Extraído: 151 (OK)
+    DIA: Extraído: 108 (OK)
+
+------------------------------------------------------
+FOTO: medida 138 86.png | Esperado: SYS=138, DIA=86
+------------------------------------------------------
+  Conf 0 [Pad: 0.00]:
+    SYS: Extraído: 138 (OK)
+    DIA: Extraído: 86 (OK)
+  Conf 1 [Pad: 0.02]:
+    SYS: Extraído: 138 (OK)
+    DIA: Extraído: 86 (OK)
+  Conf 2 [Pad: 0.04]:
+    SYS: Extraído: 138 (OK)
+    DIA: Extraído: 86 (OK)
+  Conf 3 [Pad: 0.06]:
+    SYS: Extraído: 138 (OK)
+    DIA: Extraído: 86 (OK)
+  Conf 4 [Pad: 0.08]:
+    SYS: Extraído: 138 (OK)
+    DIA: Extraído: 86 (OK)
+  Conf 5 [Pad: 0.10]:
+    SYS: Extraído: 138 (OK)
+    DIA: Extraído: 86 (OK)
+  Conf 6 [Pad: 0.12]:
+    SYS: Extraído: 138 (OK)
+    DIA: Extraído: 86 (OK)
+  Conf 7 [Pad: 0.15]:
+    SYS: Extraído: 138 (OK)
+    DIA: Extraído: 86 (OK)
+
+------------------------------------------------------
+FOTO: medida 128 68.png | Esperado: SYS=128, DIA=68
+------------------------------------------------------
+  Conf 0 [Pad: 0.00]:
+    SYS: Extraído: 128 (OK)
+    DIA: Extraído: 68 (OK)
+  Conf 1 [Pad: 0.02]:
+    SYS: Extraído: 128 (OK)
+    DIA: Extraído: 68 (OK)
+  Conf 2 [Pad: 0.04]:
+    SYS: Extraído: 128 (OK)
+    DIA: Extraído: 68 (OK)
+  Conf 3 [Pad: 0.06]:
+    SYS: Extraído: 128 (OK)
+    DIA: Extraído: 68 (OK)
+  Conf 4 [Pad: 0.08]:
+    SYS: Extraído: 128 (OK)
+    DIA: Extraído: 68 (OK)
+  Conf 5 [Pad: 0.10]:
+    SYS: Extraído: 128 (OK)
+    DIA: Extraído: 68 (OK)
+  Conf 6 [Pad: 0.12]:
+    SYS: Extraído: 128 (OK)
+    DIA: Extraído: 68 (OK)
+  Conf 7 [Pad: 0.15]:
+    SYS: Extraído: 128 (OK)
+    DIA: Extraído: 68 (OK)
+
+------------------------------------------------------
+FOTO: IMG_20231122_161253.jpg | Esperado: SYS=141, DIA=101
+------------------------------------------------------
+  Conf 0 [Pad: 0.00]:
+    SYS: Extraído: 141 (OK)
+    DIA: Extraído: 101 (OK)
+  Conf 1 [Pad: 0.02]:
+    SYS: Extraído: 141 (OK)
+    DIA: Extraído: 101 (OK)
+  Conf 2 [Pad: 0.04]:
+    SYS: Extraído: 141 (OK)
+    DIA: Extraído: 101 (OK)
+  Conf 3 [Pad: 0.06]:
+    SYS: Extraído: 141 (OK)
+    DIA: Extraído: 101 (OK)
+  Conf 4 [Pad: 0.08]:
+    SYS: Extraído: 141 (OK)
+    DIA: Extraído: 101 (OK)
+  Conf 5 [Pad: 0.10]:
+    SYS: Extraído: 141 (OK)
+    DIA: Extraído: 101 (OK)
+  Conf 6 [Pad: 0.12]:
+    SYS: Extraído: 141 (OK)
+    DIA: Extraído: 101 (OK)
+  Conf 7 [Pad: 0.15]:
+    SYS: Extraído: 141 (OK)
+    DIA: Extraído: 0 (FAIL)
+
+------------------------------------------------------
+FOTO: IMG_20231126_222225.jpg | Esperado: SYS=142, DIA=101
+------------------------------------------------------
+  Conf 0 [Pad: 0.00]:
+    SYS: Extraído: 142 (OK)
+    DIA: Extraído: 181 (FAIL)
+  Conf 1 [Pad: 0.02]:
+    SYS: Extraído: 142 (OK)
+    DIA: Extraído: 101 (OK)
+  Conf 2 [Pad: 0.04]:
+    SYS: Extraído: 142 (OK)
+    DIA: Extraído: 101 (OK)
+  Conf 3 [Pad: 0.06]:
+    SYS: Extraído: 142 (OK)
+    DIA: Extraído: 101 (OK)
+  Conf 4 [Pad: 0.08]:
+    SYS: Extraído: 142 (OK)
+    DIA: Extraído: 101 (OK)
+  Conf 5 [Pad: 0.10]:
+    SYS: Extraído: 142 (OK)
+    DIA: Extraído: 101 (OK)
+  Conf 6 [Pad: 0.12]:
+    SYS: Extraído: 142 (OK)
+    DIA: Extraído: 101 (OK)
+  Conf 7 [Pad: 0.15]:
+    SYS: Extraído: 142 (OK)
+    DIA: Extraído: 101 (OK)
+
+------------------------------------------------------
+FOTO: IMG_20231122_093413.jpg | Esperado: SYS=137, DIA=100
+------------------------------------------------------
+  Conf 0 [Pad: 0.00]:
+    SYS: Extraído: 137 (OK)
+    DIA: Extraído: 100 (OK)
+  Conf 1 [Pad: 0.02]:
+    SYS: Extraído: 137 (OK)
+    DIA: Extraído: 0 (FAIL)
+  Conf 2 [Pad: 0.04]:
+    SYS: Extraído: 137 (OK)
+    DIA: Extraído: 0 (FAIL)
+  Conf 3 [Pad: 0.06]:
+    SYS: Extraído: 137 (OK)
+    DIA: Extraído: 0 (FAIL)
+  Conf 4 [Pad: 0.08]:
+    SYS: Extraído: 131 (FAIL)
+    DIA: Extraído: 100 (OK)
+  Conf 5 [Pad: 0.10]:
+    SYS: Extraído: 137 (OK)
+    DIA: Extraído: 100 (OK)
+  Conf 6 [Pad: 0.12]:
+    SYS: Extraído: 137 (OK)
+    DIA: Extraído: 110 (FAIL)
+  Conf 7 [Pad: 0.15]:
+    SYS: Extraído: 137 (OK)
+    DIA: Extraído: 109 (FAIL)
+
+------------------------------------------------------
+FOTO: medida 126 94.png | Esperado: SYS=126, DIA=94
+------------------------------------------------------
+  Conf 0 [Pad: 0.00]:
+    SYS: Extraído: 126 (OK)
+    DIA: Extraído: 94 (OK)
+  Conf 1 [Pad: 0.02]:
+    SYS: Extraído: 126 (OK)
+    DIA: Extraído: 94 (OK)
+  Conf 2 [Pad: 0.04]:
+    SYS: Extraído: 121 (FAIL)
+    DIA: Extraído: 94 (OK)
+  Conf 3 [Pad: 0.06]:
+    SYS: Extraído: 126 (OK)
+    DIA: Extraído: 94 (OK)
+  Conf 4 [Pad: 0.08]:
+    SYS: Extraído: 121 (FAIL)
+    DIA: Extraído: 94 (OK)
+  Conf 5 [Pad: 0.10]:
+    SYS: Extraído: 126 (OK)
+    DIA: Extraído: 94 (OK)
+  Conf 6 [Pad: 0.12]:
+    SYS: Extraído: 126 (OK)
+    DIA: Extraído: 94 (OK)
+  Conf 7 [Pad: 0.15]:
+    SYS: Extraído: 126 (OK)
+    DIA: Extraído: 94 (OK)
+
+------------------------------------------------------
+FOTO: IMG_20231124_105733.jpg | Esperado: SYS=139, DIA=99
+------------------------------------------------------
+  Conf 0 [Pad: 0.00]:
+    SYS: Extraído: 139 (OK)
+    DIA: Extraído: 39 (FAIL)
+  Conf 1 [Pad: 0.02]:
+    SYS: Extraído: 139 (OK)
+    DIA: Extraído: 39 (FAIL)
+  Conf 2 [Pad: 0.04]:
+    SYS: Extraído: 139 (OK)
+    DIA: Extraído: 99 (OK)
+  Conf 3 [Pad: 0.06]:
+    SYS: Extraído: 139 (OK)
+    DIA: Extraído: 39 (FAIL)
+  Conf 4 [Pad: 0.08]:
+    SYS: Extraído: 139 (OK)
+    DIA: Extraído: 39 (FAIL)
+  Conf 5 [Pad: 0.10]:
+    SYS: Extraído: 139 (OK)
+    DIA: Extraído: 99 (OK)
+  Conf 6 [Pad: 0.12]:
+    SYS: Extraído: 139 (OK)
+    DIA: Extraído: 99 (OK)
+  Conf 7 [Pad: 0.15]:
+    SYS: Extraído: 139 (OK)
+    DIA: Extraído: 99 (OK)
+
+------------------------------------------------------
+FOTO: PXL_20260604_173837686.MP.jpg | Esperado: SYS=103, DIA=73
+------------------------------------------------------
+  Conf 0 [Pad: 0.00]:
+    SYS: Extraído: 103 (OK)
+    DIA: Extraído: 173 (FAIL)
+  Conf 1 [Pad: 0.02]:
+    SYS: Extraído: 103 (OK)
+    DIA: Extraído: 173 (FAIL)
+  Conf 2 [Pad: 0.04]:
+    SYS: Extraído: 103 (OK)
+    DIA: Extraído: 173 (FAIL)
+  Conf 3 [Pad: 0.06]:
+    SYS: Extraído: 103 (OK)
+    DIA: Extraído: 173 (FAIL)
+  Conf 4 [Pad: 0.08]:
+    SYS: Extraído: 103 (OK)
+    DIA: Extraído: 173 (FAIL)
+  Conf 5 [Pad: 0.10]:
+    SYS: Extraído: 103 (OK)
+    DIA: Extraído: 173 (FAIL)
+  Conf 6 [Pad: 0.12]:
+    SYS: Extraído: 103 (OK)
+    DIA: Extraído: 173 (FAIL)
+  Conf 7 [Pad: 0.15]:
+    SYS: Extraído: 103 (OK)
+    DIA: Extraído: 73 (OK)
+
+------------------------------------------------------
+FOTO: IMG_20231127_114625.jpg | Esperado: SYS=153, DIA=115
+------------------------------------------------------
+  Conf 0 [Pad: 0.00]:
+    SYS: Extraído: 153 (OK)
+    DIA: Extraído: 111 (FAIL)
+  Conf 1 [Pad: 0.02]:
+    SYS: Extraído: 153 (OK)
+    DIA: Extraído: 115 (OK)
+  Conf 2 [Pad: 0.04]:
+    SYS: Extraído: 153 (OK)
+    DIA: Extraído: 0 (FAIL)
+  Conf 3 [Pad: 0.06]:
+    SYS: Extraído: 153 (OK)
+    DIA: Extraído: 77 (FAIL)
+  Conf 4 [Pad: 0.08]:
+    SYS: Extraído: 153 (OK)
+    DIA: Extraído: 0 (FAIL)
+  Conf 5 [Pad: 0.10]:
+    SYS: Extraído: 153 (OK)
+    DIA: Extraído: 0 (FAIL)
+  Conf 6 [Pad: 0.12]:
+    SYS: Extraído: 153 (OK)
+    DIA: Extraído: 0 (FAIL)
+  Conf 7 [Pad: 0.15]:
+    SYS: Extraído: 153 (OK)
+    DIA: Extraído: 191 (FAIL)
+
+------------------------------------------------------
+FOTO: medida 139-79.png | Esperado: SYS=139, DIA=79
+------------------------------------------------------
+  Conf 0 [Pad: 0.00]:
+    SYS: Extraído: 139 (OK)
+    DIA: Extraído: 0 (FAIL)
+  Conf 1 [Pad: 0.02]:
+    SYS: Extraído: 139 (OK)
+    DIA: Extraído: 0 (FAIL)
+  Conf 2 [Pad: 0.04]:
+    SYS: Extraído: 139 (OK)
+    DIA: Extraído: 0 (FAIL)
+  Conf 3 [Pad: 0.06]:
+    SYS: Extraído: 139 (OK)
+    DIA: Extraído: 0 (FAIL)
+  Conf 4 [Pad: 0.08]:
+    SYS: Extraído: 139 (OK)
+    DIA: Extraído: 0 (FAIL)
+  Conf 5 [Pad: 0.10]:
+    SYS: Extraído: 139 (OK)
+    DIA: Extraído: 79 (OK)
+  Conf 6 [Pad: 0.12]:
+    SYS: Extraído: 139 (OK)
+    DIA: Extraído: 79 (OK)
+  Conf 7 [Pad: 0.15]:
+    SYS: Extraído: 139 (OK)
+    DIA: Extraído: 79 (OK)
+
+------------------------------------------------------
+FOTO: IMG_20231125_100154.jpg | Esperado: SYS=141, DIA=109
+------------------------------------------------------
+  Conf 0 [Pad: 0.00]:
+    SYS: Extraído: 141 (OK)
+    DIA: Extraído: 109 (OK)
+  Conf 1 [Pad: 0.02]:
+    SYS: Extraído: 141 (OK)
+    DIA: Extraído: 109 (OK)
+  Conf 2 [Pad: 0.04]:
+    SYS: Extraído: 141 (OK)
+    DIA: Extraído: 109 (OK)
+  Conf 3 [Pad: 0.06]:
+    SYS: Extraído: 141 (OK)
+    DIA: Extraído: 109 (OK)
+  Conf 4 [Pad: 0.08]:
+    SYS: Extraído: 141 (OK)
+    DIA: Extraído: 109 (OK)
+  Conf 5 [Pad: 0.10]:
+    SYS: Extraído: 141 (OK)
+    DIA: Extraído: 109 (OK)
+  Conf 6 [Pad: 0.12]:
+    SYS: Extraído: 141 (OK)
+    DIA: Extraído: 109 (OK)
+  Conf 7 [Pad: 0.15]:
+    SYS: Extraído: 141 (OK)
+    DIA: Extraído: 109 (OK)
+
+------------------------------------------------------
+FOTO: IMG_20231125_100245.jpg | Esperado: SYS=140, DIA=108
+------------------------------------------------------
+  Conf 0 [Pad: 0.00]:
+    SYS: Extraído: 0 (FAIL)
+    DIA: Extraído: 108 (OK)
+  Conf 1 [Pad: 0.02]:
+    SYS: Extraído: 140 (OK)
+    DIA: Extraído: 108 (OK)
+  Conf 2 [Pad: 0.04]:
+    SYS: Extraído: 140 (OK)
+    DIA: Extraído: 108 (OK)
+  Conf 3 [Pad: 0.06]:
+    SYS: Extraído: 140 (OK)
+    DIA: Extraído: 108 (OK)
+  Conf 4 [Pad: 0.08]:
+    SYS: Extraído: 140 (OK)
+    DIA: Extraído: 108 (OK)
+  Conf 5 [Pad: 0.10]:
+    SYS: Extraído: 140 (OK)
+    DIA: Extraído: 108 (OK)
+  Conf 6 [Pad: 0.12]:
+    SYS: Extraído: 140 (OK)
+    DIA: Extraído: 108 (OK)
+  Conf 7 [Pad: 0.15]:
+    SYS: Extraído: 140 (OK)
+    DIA: Extraído: 108 (OK)
+
+------------------------------------------------------
+FOTO: PXL_20260604_174952306.MP.jpg | Esperado: SYS=105, DIA=76
+------------------------------------------------------
+  Conf 0 [Pad: 0.00]:
+    SYS: Extraído: 105 (OK)
+    DIA: Extraído: 76 (OK)
+  Conf 1 [Pad: 0.02]:
+    SYS: Extraído: 105 (OK)
+    DIA: Extraído: 76 (OK)
+  Conf 2 [Pad: 0.04]:
+    SYS: Extraído: 105 (OK)
+    DIA: Extraído: 76 (OK)
+  Conf 3 [Pad: 0.06]:
+    SYS: Extraído: 105 (OK)
+    DIA: Extraído: 76 (OK)
+  Conf 4 [Pad: 0.08]:
+    SYS: Extraído: 105 (OK)
+    DIA: Extraído: 76 (OK)
+  Conf 5 [Pad: 0.10]:
+    SYS: Extraído: 105 (OK)
+    DIA: Extraído: 76 (OK)
+  Conf 6 [Pad: 0.12]:
+    SYS: Extraído: 105 (OK)
+    DIA: Extraído: 76 (OK)
+  Conf 7 [Pad: 0.15]:
+    SYS: Extraído: 105 (OK)
+    DIA: Extraído: 76 (OK)
+
+------------------------------------------------------
+FOTO: IMG_20231122_161150.jpg | Esperado: SYS=144, DIA=103
+------------------------------------------------------
+  Conf 0 [Pad: 0.00]:
+    SYS: Extraído: 0 (FAIL)
+    DIA: Extraído: 103 (OK)
+  Conf 1 [Pad: 0.02]:
+    SYS: Extraído: 144 (OK)
+    DIA: Extraído: 103 (OK)
+  Conf 2 [Pad: 0.04]:
+    SYS: Extraído: 211 (FAIL)
+    DIA: Extraído: 103 (OK)
+  Conf 3 [Pad: 0.06]:
+    SYS: Extraído: 144 (OK)
+    DIA: Extraído: 103 (OK)
+  Conf 4 [Pad: 0.08]:
+    SYS: Extraído: 144 (OK)
+    DIA: Extraído: 103 (OK)
+  Conf 5 [Pad: 0.10]:
+    SYS: Extraído: 0 (FAIL)
+    DIA: Extraído: 103 (OK)
+  Conf 6 [Pad: 0.12]:
+    SYS: Extraído: 111 (FAIL)
+    DIA: Extraído: 103 (OK)
+  Conf 7 [Pad: 0.15]:
+    SYS: Extraído: 111 (FAIL)
+    DIA: Extraído: 103 (OK)
+
+------------------------------------------------------
+FOTO: medida 146 88.png | Esperado: SYS=146, DIA=88
+------------------------------------------------------
+  Conf 0 [Pad: 0.00]:
+    SYS: Extraído: 146 (OK)
+    DIA: Extraído: 88 (OK)
+  Conf 1 [Pad: 0.02]:
+    SYS: Extraído: 146 (OK)
+    DIA: Extraído: 88 (OK)
+  Conf 2 [Pad: 0.04]:
+    SYS: Extraído: 146 (OK)
+    DIA: Extraído: 188 (FAIL)
+  Conf 3 [Pad: 0.06]:
+    SYS: Extraído: 146 (OK)
+    DIA: Extraído: 188 (FAIL)
+  Conf 4 [Pad: 0.08]:
+    SYS: Extraído: 146 (OK)
+    DIA: Extraído: 188 (FAIL)
+  Conf 5 [Pad: 0.10]:
+    SYS: Extraído: 146 (OK)
+    DIA: Extraído: 188 (FAIL)
+  Conf 6 [Pad: 0.12]:
+    SYS: Extraído: 146 (OK)
+    DIA: Extraído: 188 (FAIL)
+  Conf 7 [Pad: 0.15]:
+    SYS: Extraído: 146 (OK)
+    DIA: Extraído: 188 (FAIL)
+
+------------------------------------------------------
+FOTO: IMG_20231122_184733.jpg | Esperado: SYS=135, DIA=103
+------------------------------------------------------
+  Conf 0 [Pad: 0.00]:
+    SYS: Extraído: 135 (OK)
+    DIA: Extraído: 103 (OK)
+  Conf 1 [Pad: 0.02]:
+    SYS: Extraído: 135 (OK)
+    DIA: Extraído: 103 (OK)
+  Conf 2 [Pad: 0.04]:
+    SYS: Extraído: 135 (OK)
+    DIA: Extraído: 103 (OK)
+  Conf 3 [Pad: 0.06]:
+    SYS: Extraído: 135 (OK)
+    DIA: Extraído: 103 (OK)
+  Conf 4 [Pad: 0.08]:
+    SYS: Extraído: 135 (OK)
+    DIA: Extraído: 103 (OK)
+  Conf 5 [Pad: 0.10]:
+    SYS: Extraído: 135 (OK)
+    DIA: Extraído: 103 (OK)
+  Conf 6 [Pad: 0.12]:
+    SYS: Extraído: 135 (OK)
+    DIA: Extraído: 103 (OK)
+  Conf 7 [Pad: 0.15]:
+    SYS: Extraído: 135 (OK)
+    DIA: Extraído: 103 (OK)
+
+------------------------------------------------------
+FOTO: IMG_20231122_144113.jpg | Esperado: SYS=150, DIA=110
+------------------------------------------------------
+  Conf 0 [Pad: 0.00]:
+    SYS: Extraído: 151 (FAIL)
+    DIA: Extraído: 47 (FAIL)
+  Conf 1 [Pad: 0.02]:
+    SYS: Extraído: 111 (FAIL)
+    DIA: Extraído: 113 (FAIL)
+  Conf 2 [Pad: 0.04]:
+    SYS: Extraído: 150 (OK)
+    DIA: Extraído: 0 (FAIL)
+  Conf 3 [Pad: 0.06]:
+    SYS: Extraído: 150 (OK)
+    DIA: Extraído: 110 (OK)
+  Conf 4 [Pad: 0.08]:
+    SYS: Extraído: 150 (OK)
+    DIA: Extraído: 0 (FAIL)
+  Conf 5 [Pad: 0.10]:
+    SYS: Extraído: 150 (OK)
+    DIA: Extraído: 110 (OK)
+  Conf 6 [Pad: 0.12]:
+    SYS: Extraído: 150 (OK)
+    DIA: Extraído: 41 (FAIL)
+  Conf 7 [Pad: 0.15]:
+    SYS: Extraído: 150 (OK)
+    DIA: Extraído: 101 (FAIL)
+
+------------------------------------------------------
+FOTO: PXL_20260604_170243708.MP.jpg | Esperado: SYS=105, DIA=71
+------------------------------------------------------
+  Conf 0 [Pad: 0.00]:
+    SYS: Extraído: 105 (OK)
+    DIA: Extraído: 111 (FAIL)
+  Conf 1 [Pad: 0.02]:
+    SYS: Extraído: 105 (OK)
+    DIA: Extraído: 71 (OK)
+  Conf 2 [Pad: 0.04]:
+    SYS: Extraído: 105 (OK)
+    DIA: Extraído: 71 (OK)
+  Conf 3 [Pad: 0.06]:
+    SYS: Extraído: 105 (OK)
+    DIA: Extraído: 71 (OK)
+  Conf 4 [Pad: 0.08]:
+    SYS: Extraído: 105 (OK)
+    DIA: Extraído: 71 (OK)
+  Conf 5 [Pad: 0.10]:
+    SYS: Extraído: 105 (OK)
+    DIA: Extraído: 71 (OK)
+  Conf 6 [Pad: 0.12]:
+    SYS: Extraído: 105 (OK)
+    DIA: Extraído: 71 (OK)
+  Conf 7 [Pad: 0.15]:
+    SYS: Extraído: 105 (OK)
+    DIA: Extraído: 71 (OK)
+
+------------------------------------------------------
+FOTO: IMG_20231126_222124.jpg | Esperado: SYS=153, DIA=109
+------------------------------------------------------
+  Conf 0 [Pad: 0.00]:
+    SYS: Extraído: 153 (OK)
+    DIA: Extraído: 119 (FAIL)
+  Conf 1 [Pad: 0.02]:
+    SYS: Extraído: 153 (OK)
+    DIA: Extraído: 118 (FAIL)
+  Conf 2 [Pad: 0.04]:
+    SYS: Extraído: 153 (OK)
+    DIA: Extraído: 119 (FAIL)
+  Conf 3 [Pad: 0.06]:
+    SYS: Extraído: 153 (OK)
+    DIA: Extraído: 179 (FAIL)
+  Conf 4 [Pad: 0.08]:
+    SYS: Extraído: 153 (OK)
+    DIA: Extraído: 179 (FAIL)
+  Conf 5 [Pad: 0.10]:
+    SYS: Extraído: 153 (OK)
+    DIA: Extraído: 179 (FAIL)
+  Conf 6 [Pad: 0.12]:
+    SYS: Extraído: 153 (OK)
+    DIA: Extraído: 179 (FAIL)
+  Conf 7 [Pad: 0.15]:
+    SYS: Extraído: 153 (OK)
+    DIA: Extraído: 199 (FAIL)
+
+------------------------------------------------------
+FOTO: IMG_20231125_100054.jpg | Esperado: SYS=151, DIA=102
+------------------------------------------------------
+  Conf 0 [Pad: 0.00]:
+    SYS: Extraído: 151 (OK)
+    DIA: Extraído: 102 (OK)
+  Conf 1 [Pad: 0.02]:
+    SYS: Extraído: 151 (OK)
+    DIA: Extraído: 102 (OK)
+  Conf 2 [Pad: 0.04]:
+    SYS: Extraído: 151 (OK)
+    DIA: Extraído: 102 (OK)
+  Conf 3 [Pad: 0.06]:
+    SYS: Extraído: 151 (OK)
+    DIA: Extraído: 102 (OK)
+  Conf 4 [Pad: 0.08]:
+    SYS: Extraído: 151 (OK)
+    DIA: Extraído: 102 (OK)
+  Conf 5 [Pad: 0.10]:
+    SYS: Extraído: 151 (OK)
+    DIA: Extraído: 102 (OK)
+  Conf 6 [Pad: 0.12]:
+    SYS: Extraído: 151 (OK)
+    DIA: Extraído: 102 (OK)
+  Conf 7 [Pad: 0.15]:
+    SYS: Extraído: 151 (OK)
+    DIA: Extraído: 102 (OK)
+
+------------------------------------------------------
+FOTO: medida 118 86.png | Esperado: SYS=118, DIA=86
+------------------------------------------------------
+  Conf 0 [Pad: 0.00]:
+    SYS: Extraído: 118 (OK)
+    DIA: Extraído: 0 (FAIL)
+  Conf 1 [Pad: 0.02]:
+    SYS: Extraído: 118 (OK)
+    DIA: Extraído: 121 (FAIL)
+  Conf 2 [Pad: 0.04]:
+    SYS: Extraído: 118 (OK)
+    DIA: Extraído: 85 (FAIL)
+  Conf 3 [Pad: 0.06]:
+    SYS: Extraído: 118 (OK)
+    DIA: Extraído: 85 (FAIL)
+  Conf 4 [Pad: 0.08]:
+    SYS: Extraído: 118 (OK)
+    DIA: Extraído: 85 (FAIL)
+  Conf 5 [Pad: 0.10]:
+    SYS: Extraído: 118 (OK)
+    DIA: Extraído: 186 (FAIL)
+  Conf 6 [Pad: 0.12]:
+    SYS: Extraído: 118 (OK)
+    DIA: Extraído: 186 (FAIL)
+  Conf 7 [Pad: 0.15]:
+    SYS: Extraído: 118 (OK)
+    DIA: Extraído: 186 (FAIL)
+
+------------------------------------------------------
+FOTO: IMG_20231127_114725.jpg | Esperado: SYS=147, DIA=112
+------------------------------------------------------
+  Conf 0 [Pad: 0.00]:
+    SYS: Extraído: 147 (OK)
+    DIA: Extraído: 112 (OK)
+  Conf 1 [Pad: 0.02]:
+    SYS: Extraído: 147 (OK)
+    DIA: Extraído: 112 (OK)
+  Conf 2 [Pad: 0.04]:
+    SYS: Extraído: 147 (OK)
+    DIA: Extraído: 112 (OK)
+  Conf 3 [Pad: 0.06]:
+    SYS: Extraído: 147 (OK)
+    DIA: Extraído: 112 (OK)
+  Conf 4 [Pad: 0.08]:
+    SYS: Extraído: 147 (OK)
+    DIA: Extraído: 112 (OK)
+  Conf 5 [Pad: 0.10]:
+    SYS: Extraído: 147 (OK)
+    DIA: Extraído: 112 (OK)
+  Conf 6 [Pad: 0.12]:
+    SYS: Extraído: 147 (OK)
+    DIA: Extraído: 112 (OK)
+  Conf 7 [Pad: 0.15]:
+    SYS: Extraído: 147 (OK)
+    DIA: Extraído: 112 (OK)
+
+------------------------------------------------------
+FOTO: PXL_20260604_171821825.MP.jpg | Esperado: SYS=102, DIA=72
+------------------------------------------------------
+  Conf 0 [Pad: 0.00]:
+    SYS: Extraído: 102 (OK)
+    DIA: Extraído: 112 (FAIL)
+  Conf 1 [Pad: 0.02]:
+    SYS: Extraído: 102 (OK)
+    DIA: Extraído: 72 (OK)
+  Conf 2 [Pad: 0.04]:
+    SYS: Extraído: 102 (OK)
+    DIA: Extraído: 72 (OK)
+  Conf 3 [Pad: 0.06]:
+    SYS: Extraído: 102 (OK)
+    DIA: Extraído: 72 (OK)
+  Conf 4 [Pad: 0.08]:
+    SYS: Extraído: 102 (OK)
+    DIA: Extraído: 72 (OK)
+  Conf 5 [Pad: 0.10]:
+    SYS: Extraído: 102 (OK)
+    DIA: Extraído: 72 (OK)
+  Conf 6 [Pad: 0.12]:
+    SYS: Extraído: 102 (OK)
+    DIA: Extraído: 72 (OK)
+  Conf 7 [Pad: 0.15]:
+    SYS: Extraído: 102 (OK)
+    DIA: Extraído: 72 (OK)
+
+======================================================
+RESUMEN DE ACCURACY
+Total evaluado: 45 fotos
+======================================================
+Conf 0 [Pad: 0.0] => SYS: 86.7% (39/45), DIA: 60.0% (27/45), AMBOS: 48.9% (22/45)
+Conf 1 [Pad: 0.02] => SYS: 91.1% (41/45), DIA: 68.9% (31/45), AMBOS: 62.2% (28/45)
+Conf 2 [Pad: 0.04] => SYS: 88.9% (40/45), DIA: 66.7% (30/45), AMBOS: 55.6% (25/45)
+Conf 3 [Pad: 0.06] => SYS: 93.3% (42/45), DIA: 71.1% (32/45), AMBOS: 64.4% (29/45)
+Conf 4 [Pad: 0.08] => SYS: 88.9% (40/45), DIA: 68.9% (31/45), AMBOS: 57.8% (26/45)
+Conf 5 [Pad: 0.1] => SYS: 88.9% (40/45), DIA: 80.0% (36/45), AMBOS: 71.1% (32/45)
+Conf 6 [Pad: 0.12] => SYS: 88.9% (40/45), DIA: 66.7% (30/45), AMBOS: 55.6% (25/45)
+Conf 7 [Pad: 0.15] => SYS: 91.1% (41/45), DIA: 66.7% (30/45), AMBOS: 60.0% (27/45)
+======================================================

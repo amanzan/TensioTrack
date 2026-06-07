@@ -885,6 +885,7 @@ class CaptureScreen extends StatefulWidget {
 class _CaptureScreenState extends State<CaptureScreen> {
   static const _apiKey = String.fromEnvironment('GEMINI_API_KEY');
   Uint8List? _imageBytes;
+  String? _lastImagePath;
   bool _processing = false;
   OcrResult? _ocrResult;
   bool _ocrFailed = false;
@@ -926,12 +927,16 @@ class _CaptureScreenState extends State<CaptureScreen> {
     final bytes = await image.readAsBytes();
     setState(() {
       _imageBytes = bytes;
+      _lastImagePath = image.path;
       _processing = true;
       _ocrResult = null;
       _ocrFailed = false;
       _apiKeyMissing = false;
       _ocrError = null;
     });
+
+    // Permitir al frame de Flutter dibujarse antes de iniciar la inferencia pesada de YOLOv8
+    await Future.delayed(const Duration(milliseconds: 100));
 
     if (_apiKey.isEmpty && kIsWeb) {
       if (!mounted) return;
@@ -1017,11 +1022,53 @@ class _CaptureScreenState extends State<CaptureScreen> {
   void _clearImage() {
     setState(() {
       _imageBytes = null;
+      _lastImagePath = null;
       _ocrResult = null;
       _ocrFailed = false;
       _apiKeyMissing = false;
       _ocrError = null;
     });
+  }
+
+  Future<void> _retryOcrAlternative() async {
+    if (_imageBytes == null || _lastImagePath == null) return;
+
+    setState(() {
+      _processing = true;
+      _ocrResult = null;
+      _ocrFailed = false;
+      _apiKeyMissing = false;
+      _ocrError = null;
+    });
+
+    // Permitir al frame de Flutter dibujarse antes de iniciar el OCR alternativo
+    await Future.delayed(const Duration(milliseconds: 100));
+
+    try {
+      final ocrService = OcrService();
+      final result = await ocrService.recognizePressure(
+        _lastImagePath!,
+        _imageBytes!,
+        useAlternate: true,
+      );
+      if (!mounted) return;
+      setState(() {
+        _ocrResult = result;
+        _ocrFailed = result == null;
+      });
+    } catch (e) {
+      debugPrint('Error durante el OCR alternativo: $e');
+      if (mounted) {
+        setState(() {
+          _ocrFailed = true;
+          _ocrError = e.toString();
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _processing = false);
+      }
+    }
   }
 
   @override
@@ -1061,6 +1108,20 @@ class _CaptureScreenState extends State<CaptureScreen> {
                               onPressed: _clearImage,
                               icon: const Icon(Icons.delete_outline_rounded, color: Colors.white),
                               tooltip: 'Borrar imagen',
+                            ),
+                          ),
+                        ),
+                      if (!_processing && _lastImagePath != null)
+                        Positioned(
+                          top: 14,
+                          left: 14,
+                          child: Material(
+                            color: Colors.black.withValues(alpha: 0.5),
+                            shape: const CircleBorder(),
+                            child: IconButton(
+                              onPressed: _retryOcrAlternative,
+                              icon: const Icon(Icons.refresh_rounded, color: Colors.white),
+                              tooltip: 'Reintentar con método alternativo',
                             ),
                           ),
                         ),

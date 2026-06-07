@@ -52,5 +52,5 @@ abstract class OcrService {
   /// Procesa una imagen dada su ruta local (mobile) o sus bytes (web/mobile).
   ///
   /// Retorna un [OcrResult] si se detectaron los valores, o null si falló.
-  Future<OcrResult?> recognizePressure(String imagePath, Uint8List imageBytes);
+  Future<OcrResult?> recognizePressure(String imagePath, Uint8List imageBytes, {bool useAlternate = false});
 }
