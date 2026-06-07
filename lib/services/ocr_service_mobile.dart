@@ -34,6 +34,8 @@ class GeminiOcrService implements OcrService {
   /// Si es true, omite Gemini y realiza los intentos cloud solo con Groq.
   static bool forceGroqOcr = const bool.fromEnvironment('FORCE_GROQ_OCR');
 
+  static DateTime? _geminiQuotaBlockedUntil;
+
   @override
   Future<OcrResult?> recognizePressure(
     String imagePath,
@@ -103,9 +105,7 @@ class GeminiOcrService implements OcrService {
     Object? lastError;
 
     for (var attempt = 1; attempt <= _maxCloudAttempts; attempt++) {
-      final provider = forceGroqOcr
-          ? _CloudOcrProvider.groq
-          : (attempt.isOdd ? _CloudOcrProvider.gemini : _CloudOcrProvider.groq);
+      final provider = _cloudProviderForAttempt(attempt);
 
       try {
         debugPrint(
@@ -118,6 +118,9 @@ class GeminiOcrService implements OcrService {
         if (result != null) return result;
       } catch (e) {
         lastError = e;
+        if (provider == _CloudOcrProvider.gemini && _isGeminiQuotaError(e)) {
+          _rememberGeminiQuotaCooldown(e);
+        }
         debugPrint(
           'TensioTrack ${provider.label}: intento $attempt/$_maxCloudAttempts falló ($e).',
         );
@@ -130,6 +133,59 @@ class GeminiOcrService implements OcrService {
 
     if (lastError != null) throw lastError;
     return null;
+  }
+
+  _CloudOcrProvider _cloudProviderForAttempt(int attempt) {
+    if (forceGroqOcr) return _CloudOcrProvider.groq;
+
+    final preferred = attempt.isOdd
+        ? _CloudOcrProvider.gemini
+        : _CloudOcrProvider.groq;
+    if (preferred == _CloudOcrProvider.gemini && _isGeminiQuotaBlocked()) {
+      debugPrint(
+        'TensioTrack Gemini: cuota agotada temporalmente. Usando Groq en este intento.',
+      );
+      return _CloudOcrProvider.groq;
+    }
+
+    return preferred;
+  }
+
+  bool _isGeminiQuotaBlocked() {
+    final blockedUntil = _geminiQuotaBlockedUntil;
+    if (blockedUntil == null) return false;
+
+    if (DateTime.now().isAfter(blockedUntil)) {
+      _geminiQuotaBlockedUntil = null;
+      return false;
+    }
+
+    return true;
+  }
+
+  bool _isGeminiQuotaError(Object error) {
+    final errorText = error.toString().toLowerCase();
+    return errorText.contains('quota exceeded') ||
+        errorText.contains('resource_exhausted') ||
+        errorText.contains('current quota');
+  }
+
+  void _rememberGeminiQuotaCooldown(Object error) {
+    final errorText = error.toString();
+    final retryMatch = RegExp(
+      r'retry in ([0-9]+(?:\.[0-9]+)?)s',
+      caseSensitive: false,
+    ).firstMatch(errorText);
+    final retrySeconds = retryMatch == null
+        ? 60.0
+        : double.tryParse(retryMatch.group(1)!) ?? 60.0;
+
+    _geminiQuotaBlockedUntil = DateTime.now().add(
+      Duration(milliseconds: (retrySeconds * 1000).ceil()),
+    );
+    debugPrint(
+      'TensioTrack Gemini: cuota agotada. Se evitará Gemini durante ${retrySeconds.toStringAsFixed(1)}s.',
+    );
   }
 
   /// OCR local especializado para pantallas LCD de 7 segmentos.
