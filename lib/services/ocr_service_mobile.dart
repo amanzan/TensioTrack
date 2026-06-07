@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 import 'dart:ui';
@@ -6,6 +7,7 @@ import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
+import 'package:http/http.dart' as http;
 
 import 'ocr_service.dart';
 
@@ -14,16 +16,23 @@ OcrService getOcrService() => GeminiOcrService();
 
 class GeminiOcrService implements OcrService {
   /// Clave API de Gemini.
-  static const _apiKey = String.fromEnvironment('GEMINI_API_KEY');
+  static const _geminiApiKey = String.fromEnvironment('GEMINI_API_KEY');
 
-  /// Timeout máximo para la petición a Gemini.
+  /// Clave API de Groq.
+  static const _groqApiKey = String.fromEnvironment('GROQ_API_KEY');
+
+  /// Timeout máximo para las peticiones a proveedores cloud.
   static const _timeout = Duration(seconds: 60);
-  static const _maxCloudAttempts = 3;
+  static const _maxCloudAttempts = 4;
 
   /// FLAG TEMPORAL PARA PRUEBAS
   /// Si es true, la app utiliza prioritariamente el lector LCD local/offline.
   /// Si es false, usa Gemini en la nube como primera opción y OCR local como respaldo.
   static bool forceOfflineOcr = false;
+
+  /// FLAG TEMPORAL PARA PRUEBAS
+  /// Si es true, omite Gemini y realiza los intentos cloud solo con Groq.
+  static bool forceGroqOcr = const bool.fromEnvironment('FORCE_GROQ_OCR');
 
   @override
   Future<OcrResult?> recognizePressure(
@@ -51,11 +60,18 @@ class GeminiOcrService implements OcrService {
     }
 
     try {
-      final cloudResult = await _recognizeWithGeminiWithRetries(imageBytes);
+      debugPrint(
+        forceGroqOcr
+            ? 'TensioTrack: Modo cloud forzado a solo Groq.'
+            : 'TensioTrack: Modo cloud alterno Gemini/Groq.',
+      );
+      final cloudResult = await _recognizeWithCloudProvidersWithRetries(
+        imageBytes,
+      );
       if (cloudResult != null) return cloudResult;
 
       debugPrint(
-        'TensioTrack: Gemini no devolvió lectura tras $_maxCloudAttempts intentos. Usando fallback OCR LCD offline...',
+        'TensioTrack: Ningún proveedor cloud devolvió lectura tras $_maxCloudAttempts intentos. Usando fallback OCR LCD offline...',
       );
       final sevenSegmentResult = await _recognizeWithSevenSegment(imageBytes);
       if (sevenSegmentResult != null) return sevenSegmentResult;
@@ -66,14 +82,14 @@ class GeminiOcrService implements OcrService {
       return await _recognizeWithMlKit(imagePath, imageBytes);
     } on TimeoutException {
       debugPrint(
-        'TensioTrack Gemini TIMEOUT tras $_maxCloudAttempts intentos: Conmutando a OCR LCD offline...',
+        'TensioTrack Cloud TIMEOUT tras $_maxCloudAttempts intentos: Conmutando a OCR LCD offline...',
       );
       final sevenSegmentResult = await _recognizeWithSevenSegment(imageBytes);
       return sevenSegmentResult ??
           await _recognizeWithMlKit(imagePath, imageBytes);
     } catch (e) {
       debugPrint(
-        'TensioTrack Gemini ERROR tras $_maxCloudAttempts intentos ($e): Conmutando a OCR LCD offline...',
+        'TensioTrack Cloud ERROR tras $_maxCloudAttempts intentos ($e): Conmutando a OCR LCD offline...',
       );
       final sevenSegmentResult = await _recognizeWithSevenSegment(imageBytes);
       return sevenSegmentResult ??
@@ -81,22 +97,29 @@ class GeminiOcrService implements OcrService {
     }
   }
 
-  Future<OcrResult?> _recognizeWithGeminiWithRetries(
+  Future<OcrResult?> _recognizeWithCloudProvidersWithRetries(
     Uint8List imageBytes,
   ) async {
     Object? lastError;
 
     for (var attempt = 1; attempt <= _maxCloudAttempts; attempt++) {
+      final provider = forceGroqOcr
+          ? _CloudOcrProvider.groq
+          : (attempt.isOdd ? _CloudOcrProvider.gemini : _CloudOcrProvider.groq);
+
       try {
         debugPrint(
-          'TensioTrack Gemini: intento $attempt/$_maxCloudAttempts...',
+          'TensioTrack ${provider.label}: intento $attempt/$_maxCloudAttempts...',
         );
-        final result = await _recognizeWithGemini(imageBytes);
+        final result = switch (provider) {
+          _CloudOcrProvider.gemini => await _recognizeWithGemini(imageBytes),
+          _CloudOcrProvider.groq => await _recognizeWithGroq(imageBytes),
+        };
         if (result != null) return result;
       } catch (e) {
         lastError = e;
         debugPrint(
-          'TensioTrack Gemini: intento $attempt/$_maxCloudAttempts falló ($e).',
+          'TensioTrack ${provider.label}: intento $attempt/$_maxCloudAttempts falló ($e).',
         );
       }
 
@@ -1377,7 +1400,7 @@ class GeminiOcrService implements OcrService {
 
   /// OCR en la nube usando Gemini Vision API
   Future<OcrResult?> _recognizeWithGemini(Uint8List imageBytes) async {
-    if (_apiKey.isEmpty) {
+    if (_geminiApiKey.isEmpty) {
       debugPrint(
         'TensioTrack: API key de Gemini no configurada. '
         'Ejecuta con: flutter run --dart-define-from-file=.env.json',
@@ -1390,7 +1413,10 @@ class GeminiOcrService implements OcrService {
       '(${(imageBytes.length / 1024).toStringAsFixed(0)} KB) a Gemini Cloud...',
     );
 
-    final model = GenerativeModel(model: 'gemini-2.5-flash', apiKey: _apiKey);
+    final model = GenerativeModel(
+      model: 'gemini-2.5-flash',
+      apiKey: _geminiApiKey,
+    );
 
     const prompt =
         '''Analyze this photo of a blood pressure monitor (tensiometer).
@@ -1454,6 +1480,130 @@ Do NOT include any other text, explanation, units, or formatting.''';
 
     debugPrint('TensioTrack Gemini RESULTADO: SYS=$sys, DIA=$dia');
 
+    return _buildCloudResult(
+      imageBytes: imageBytes,
+      systolic: sys,
+      diastolic: dia,
+      confidence: (sys > 0 && dia > 0) ? 0.95 : 0.6,
+      engineName: 'Gemini Vision (Cloud)',
+    );
+  }
+
+  /// OCR en la nube usando Groq + Llama Vision.
+  Future<OcrResult?> _recognizeWithGroq(Uint8List imageBytes) async {
+    if (_groqApiKey.isEmpty) {
+      debugPrint(
+        'TensioTrack: API key de Groq no configurada. '
+        'Ejecuta con: flutter run --dart-define-from-file=.env.json',
+      );
+      return null;
+    }
+
+    debugPrint(
+      'TensioTrack Groq: Enviando imagen '
+      '(${(imageBytes.length / 1024).toStringAsFixed(0)} KB) a Groq Cloud...',
+    );
+
+    final response = await http
+        .post(
+          Uri.parse('https://api.groq.com/openai/v1/chat/completions'),
+          headers: {
+            'Authorization': 'Bearer $_groqApiKey',
+            'Content-Type': 'application/json',
+          },
+          body: jsonEncode({
+            'model': 'meta-llama/llama-4-scout-17b-16e-instruct',
+            'max_tokens': 50,
+            'messages': [
+              {
+                'role': 'user',
+                'content': [
+                  {
+                    'type': 'image_url',
+                    'image_url': {
+                      'url':
+                          'data:${_detectImageMimeType(imageBytes)};base64,${base64Encode(imageBytes)}',
+                    },
+                  },
+                  {
+                    'type': 'text',
+                    'text':
+                        'This is a photo of a blood pressure monitor. '
+                        'Return ONLY a JSON object like {"systolic": 120, "diastolic": 80}. '
+                        'The systolic is always the larger number, diastolic the smaller. '
+                        'No explanation, no markdown, just the JSON.',
+                  },
+                ],
+              },
+            ],
+          }),
+        )
+        .timeout(_timeout);
+
+    if (response.statusCode != 200) {
+      debugPrint(
+        'TensioTrack Groq ERROR: ${response.statusCode} ${response.body}',
+      );
+      return null;
+    }
+
+    final responseJson = jsonDecode(response.body) as Map<String, dynamic>;
+    final choices = responseJson['choices'] as List<dynamic>?;
+    final message = choices?.isNotEmpty == true
+        ? choices!.first['message'] as Map<String, dynamic>?
+        : null;
+    final content = message?['content'] as String?;
+
+    debugPrint('TensioTrack Groq respuesta: "$content"');
+
+    if (content == null || content.trim().isEmpty) return null;
+    final values = _parseGroqBpResponse(content);
+    if (values == null) return null;
+
+    debugPrint(
+      'TensioTrack Groq RESULTADO: SYS=${values.systolic}, DIA=${values.diastolic}',
+    );
+
+    return _buildCloudResult(
+      imageBytes: imageBytes,
+      systolic: values.systolic,
+      diastolic: values.diastolic,
+      confidence: 0.92,
+      engineName: 'Groq Llama Vision (Cloud)',
+    );
+  }
+
+  _PressureValues? _parseGroqBpResponse(String content) {
+    try {
+      final clean = content.replaceAll(RegExp(r'```json|```'), '').trim();
+      final decoded = jsonDecode(clean);
+      if (decoded is! Map<String, dynamic>) return null;
+
+      var systolic = (decoded['systolic'] as num?)?.toInt();
+      var diastolic = (decoded['diastolic'] as num?)?.toInt();
+      if (systolic == null || diastolic == null) return null;
+      if (systolic < 40 || systolic > 250) return null;
+      if (diastolic < 40 || diastolic > 250) return null;
+
+      if (systolic < diastolic) {
+        final temp = systolic;
+        systolic = diastolic;
+        diastolic = temp;
+      }
+
+      return _PressureValues(systolic: systolic, diastolic: diastolic);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<OcrResult> _buildCloudResult({
+    required Uint8List imageBytes,
+    required int systolic,
+    required int diastolic,
+    required double confidence,
+    required String engineName,
+  }) async {
     double imageWidth = 1000, imageHeight = 1000;
     try {
       final codec = await instantiateImageCodec(imageBytes);
@@ -1463,14 +1613,58 @@ Do NOT include any other text, explanation, units, or formatting.''';
     } catch (_) {}
 
     return OcrResult(
-      systolic: sys,
-      diastolic: dia,
+      systolic: systolic,
+      diastolic: diastolic,
       imageWidth: imageWidth,
       imageHeight: imageHeight,
-      confidence: (sys > 0 && dia > 0) ? 0.95 : 0.6,
-      engineName: 'Gemini Vision (Cloud)',
+      confidence: confidence,
+      engineName: engineName,
     );
   }
+
+  String _detectImageMimeType(Uint8List bytes) {
+    if (bytes.length >= 4 &&
+        bytes[0] == 0x89 &&
+        bytes[1] == 0x50 &&
+        bytes[2] == 0x4E &&
+        bytes[3] == 0x47) {
+      return 'image/png';
+    }
+    if (bytes.length >= 3 &&
+        bytes[0] == 0xFF &&
+        bytes[1] == 0xD8 &&
+        bytes[2] == 0xFF) {
+      return 'image/jpeg';
+    }
+    if (bytes.length >= 12 &&
+        bytes[0] == 0x52 &&
+        bytes[1] == 0x49 &&
+        bytes[2] == 0x46 &&
+        bytes[3] == 0x46 &&
+        bytes[8] == 0x57 &&
+        bytes[9] == 0x45 &&
+        bytes[10] == 0x42 &&
+        bytes[11] == 0x50) {
+      return 'image/webp';
+    }
+    return 'image/jpeg';
+  }
+}
+
+enum _CloudOcrProvider {
+  gemini('Gemini'),
+  groq('Groq');
+
+  const _CloudOcrProvider(this.label);
+
+  final String label;
+}
+
+class _PressureValues {
+  const _PressureValues({required this.systolic, required this.diastolic});
+
+  final int systolic;
+  final int diastolic;
 }
 
 class _GrayImage {
