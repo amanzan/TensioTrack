@@ -21,18 +21,30 @@ class GeminiOcrService implements OcrService {
   /// Clave API de Groq.
   static const _groqApiKey = String.fromEnvironment('GROQ_API_KEY');
 
+  /// Token de GitHub Models con permiso models:read.
+  static const _githubModelsToken = String.fromEnvironment(
+    'GITHUB_MODELS_TOKEN',
+  );
+  static const _githubModelsModel = String.fromEnvironment(
+    'GITHUB_MODELS_MODEL',
+    defaultValue: 'openai/gpt-4o-mini',
+  );
+
   /// Timeout máximo para las peticiones a proveedores cloud.
   static const _timeout = Duration(seconds: 60);
-  static const _maxCloudAttempts = 4;
 
   /// FLAG TEMPORAL PARA PRUEBAS
   /// Si es true, la app utiliza prioritariamente el lector LCD local/offline.
   /// Si es false, usa Gemini en la nube como primera opción y OCR local como respaldo.
-  static bool forceOfflineOcr = false;
+  static bool forceOfflineOcr = const bool.fromEnvironment('FORCE_OFFLINE_OCR');
 
   /// FLAG TEMPORAL PARA PRUEBAS
   /// Si es true, omite Gemini y realiza los intentos cloud solo con Groq.
   static bool forceGroqOcr = const bool.fromEnvironment('FORCE_GROQ_OCR');
+
+  /// FLAG TEMPORAL PARA PRUEBAS
+  /// Si es true, omite Gemini/Groq y prueba solo GitHub Models.
+  static bool forceGithubOcr = const bool.fromEnvironment('FORCE_GITHUB_OCR');
 
   static DateTime? _geminiQuotaBlockedUntil;
 
@@ -63,9 +75,11 @@ class GeminiOcrService implements OcrService {
 
     try {
       debugPrint(
-        forceGroqOcr
+        forceGithubOcr
+            ? 'TensioTrack: Modo cloud forzado a solo GitHub Models.'
+            : forceGroqOcr
             ? 'TensioTrack: Modo cloud forzado a solo Groq.'
-            : 'TensioTrack: Modo cloud alterno Gemini/Groq.',
+            : 'TensioTrack: Modo cloud Gemini -> GitHub Models -> Gemini -> GitHub Models -> Groq -> Groq.',
       );
       final cloudResult = await _recognizeWithCloudProvidersWithRetries(
         imageBytes,
@@ -73,7 +87,7 @@ class GeminiOcrService implements OcrService {
       if (cloudResult != null) return cloudResult;
 
       debugPrint(
-        'TensioTrack: Ningún proveedor cloud devolvió lectura tras $_maxCloudAttempts intentos. Usando fallback OCR LCD offline...',
+        'TensioTrack: Ningún proveedor cloud devolvió lectura. Usando fallback OCR LCD offline...',
       );
       final sevenSegmentResult = await _recognizeWithSevenSegment(imageBytes);
       if (sevenSegmentResult != null) return sevenSegmentResult;
@@ -83,15 +97,13 @@ class GeminiOcrService implements OcrService {
       );
       return await _recognizeWithMlKit(imagePath, imageBytes);
     } on TimeoutException {
-      debugPrint(
-        'TensioTrack Cloud TIMEOUT tras $_maxCloudAttempts intentos: Conmutando a OCR LCD offline...',
-      );
+      debugPrint('TensioTrack Cloud TIMEOUT: Conmutando a OCR LCD offline...');
       final sevenSegmentResult = await _recognizeWithSevenSegment(imageBytes);
       return sevenSegmentResult ??
           await _recognizeWithMlKit(imagePath, imageBytes);
     } catch (e) {
       debugPrint(
-        'TensioTrack Cloud ERROR tras $_maxCloudAttempts intentos ($e): Conmutando a OCR LCD offline...',
+        'TensioTrack Cloud ERROR ($e): Conmutando a OCR LCD offline...',
       );
       final sevenSegmentResult = await _recognizeWithSevenSegment(imageBytes);
       return sevenSegmentResult ??
@@ -103,16 +115,19 @@ class GeminiOcrService implements OcrService {
     Uint8List imageBytes,
   ) async {
     Object? lastError;
+    final providerPlan = _cloudProviderPlan();
 
-    for (var attempt = 1; attempt <= _maxCloudAttempts; attempt++) {
-      final provider = _cloudProviderForAttempt(attempt);
+    for (var index = 0; index < providerPlan.length; index++) {
+      final attempt = index + 1;
+      final provider = providerPlan[index];
 
       try {
         debugPrint(
-          'TensioTrack ${provider.label}: intento $attempt/$_maxCloudAttempts...',
+          'TensioTrack ${provider.label}: intento $attempt/${providerPlan.length}...',
         );
         final result = switch (provider) {
           _CloudOcrProvider.gemini => await _recognizeWithGemini(imageBytes),
+          _CloudOcrProvider.github => await _recognizeWithGithub(imageBytes),
           _CloudOcrProvider.groq => await _recognizeWithGroq(imageBytes),
         };
         if (result != null) return result;
@@ -122,11 +137,11 @@ class GeminiOcrService implements OcrService {
           _rememberGeminiQuotaCooldown(e);
         }
         debugPrint(
-          'TensioTrack ${provider.label}: intento $attempt/$_maxCloudAttempts falló ($e).',
+          'TensioTrack ${provider.label}: intento $attempt/${providerPlan.length} falló ($e).',
         );
       }
 
-      if (attempt < _maxCloudAttempts) {
+      if (attempt < providerPlan.length) {
         await Future<void>.delayed(Duration(milliseconds: 700 * attempt));
       }
     }
@@ -135,20 +150,34 @@ class GeminiOcrService implements OcrService {
     return null;
   }
 
-  _CloudOcrProvider _cloudProviderForAttempt(int attempt) {
-    if (forceGroqOcr) return _CloudOcrProvider.groq;
-
-    final preferred = attempt.isOdd
-        ? _CloudOcrProvider.gemini
-        : _CloudOcrProvider.groq;
-    if (preferred == _CloudOcrProvider.gemini && _isGeminiQuotaBlocked()) {
-      debugPrint(
-        'TensioTrack Gemini: cuota agotada temporalmente. Usando Groq en este intento.',
-      );
-      return _CloudOcrProvider.groq;
+  List<_CloudOcrProvider> _cloudProviderPlan() {
+    if (forceGithubOcr) {
+      return const [_CloudOcrProvider.github, _CloudOcrProvider.github];
+    }
+    if (forceGroqOcr) {
+      return const [_CloudOcrProvider.groq, _CloudOcrProvider.groq];
     }
 
-    return preferred;
+    if (_isGeminiQuotaBlocked()) {
+      debugPrint(
+        'TensioTrack Gemini: cuota agotada temporalmente. Usando GitHub Models -> GitHub Models -> Groq -> Groq.',
+      );
+      return const [
+        _CloudOcrProvider.github,
+        _CloudOcrProvider.github,
+        _CloudOcrProvider.groq,
+        _CloudOcrProvider.groq,
+      ];
+    }
+
+    return const [
+      _CloudOcrProvider.gemini,
+      _CloudOcrProvider.github,
+      _CloudOcrProvider.gemini,
+      _CloudOcrProvider.github,
+      _CloudOcrProvider.groq,
+      _CloudOcrProvider.groq,
+    ];
   }
 
   bool _isGeminiQuotaBlocked() {
@@ -1613,7 +1642,7 @@ Do NOT include any other text, explanation, units, or formatting.''';
     debugPrint('TensioTrack Groq respuesta: "$content"');
 
     if (content == null || content.trim().isEmpty) return null;
-    final values = _parseGroqBpResponse(content);
+    final values = _parseCloudBpResponse(content);
     if (values == null) return null;
 
     debugPrint(
@@ -1629,7 +1658,97 @@ Do NOT include any other text, explanation, units, or formatting.''';
     );
   }
 
-  _PressureValues? _parseGroqBpResponse(String content) {
+  /// OCR en la nube usando GitHub Models multimodal.
+  Future<OcrResult?> _recognizeWithGithub(Uint8List imageBytes) async {
+    if (_githubModelsToken.isEmpty) {
+      debugPrint(
+        'TensioTrack: token de GitHub Models no configurado. '
+        'Ejecuta con: flutter run --dart-define-from-file=.env.json',
+      );
+      return null;
+    }
+
+    debugPrint(
+      'TensioTrack GitHub Models: Enviando imagen '
+      '(${(imageBytes.length / 1024).toStringAsFixed(0)} KB) a $_githubModelsModel...',
+    );
+
+    final response = await http
+        .post(
+          Uri.parse('https://models.github.ai/inference/chat/completions'),
+          headers: {
+            'Accept': 'application/vnd.github+json',
+            'Authorization': 'Bearer $_githubModelsToken',
+            'Content-Type': 'application/json',
+            'X-GitHub-Api-Version': '2026-03-10',
+          },
+          body: jsonEncode({
+            'model': _githubModelsModel,
+            'temperature': 0,
+            'max_tokens': 60,
+            'response_format': {'type': 'json_object'},
+            'messages': [
+              {
+                'role': 'user',
+                'content': [
+                  {
+                    'type': 'image_url',
+                    'image_url': {
+                      'url':
+                          'data:${_detectImageMimeType(imageBytes)};base64,${base64Encode(imageBytes)}',
+                    },
+                  },
+                  {
+                    'type': 'text',
+                    'text':
+                        'This is a photo of a blood pressure monitor. '
+                        'Read the LCD numbers and return ONLY JSON in this exact shape: '
+                        '{"systolic": 120, "diastolic": 80, "pulse": 65}. '
+                        'Use 0 for pulse if you cannot read it. '
+                        'The systolic is normally the larger pressure number and diastolic the smaller. '
+                        'No explanation, no markdown.',
+                  },
+                ],
+              },
+            ],
+          }),
+        )
+        .timeout(_timeout);
+
+    if (response.statusCode != 200) {
+      debugPrint(
+        'TensioTrack GitHub Models ERROR: ${response.statusCode} ${response.body}',
+      );
+      return null;
+    }
+
+    final responseJson = jsonDecode(response.body) as Map<String, dynamic>;
+    final choices = responseJson['choices'] as List<dynamic>?;
+    final message = choices?.isNotEmpty == true
+        ? choices!.first['message'] as Map<String, dynamic>?
+        : null;
+    final content = message?['content'] as String?;
+
+    debugPrint('TensioTrack GitHub Models respuesta: "$content"');
+
+    if (content == null || content.trim().isEmpty) return null;
+    final values = _parseCloudBpResponse(content);
+    if (values == null) return null;
+
+    debugPrint(
+      'TensioTrack GitHub Models RESULTADO: SYS=${values.systolic}, DIA=${values.diastolic}',
+    );
+
+    return _buildCloudResult(
+      imageBytes: imageBytes,
+      systolic: values.systolic,
+      diastolic: values.diastolic,
+      confidence: 0.93,
+      engineName: 'GitHub Models ($_githubModelsModel)',
+    );
+  }
+
+  _PressureValues? _parseCloudBpResponse(String content) {
     try {
       final clean = content.replaceAll(RegExp(r'```json|```'), '').trim();
       final decoded = jsonDecode(clean);
@@ -1709,6 +1828,7 @@ Do NOT include any other text, explanation, units, or formatting.''';
 
 enum _CloudOcrProvider {
   gemini('Gemini'),
+  github('GitHub Models'),
   groq('Groq');
 
   const _CloudOcrProvider(this.label);

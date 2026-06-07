@@ -12,7 +12,7 @@ La aplicación incluye una base funcional multiplataforma con las siguientes car
 
 - **Pantalla de inicio** centrada en la última medición registrada.
 - **Registro manual** de presión sistólica y diastólica.
-- **Reconocimiento inteligente (OCR)** de valores SYS, DIA y pulso a partir de fotografías usando el modelo **Gemini Vision (`gemini-2.5-flash`)**.
+- **Reconocimiento inteligente (OCR)** de valores SYS, DIA y pulso a partir de fotografías usando proveedores cloud multimodales: **Gemini Vision**, **GitHub Models** y **Groq Llama Vision**, con respaldo local/offline.
 - **Histórico de mediciones** almacenadas localmente.
 - **Pantalla de estadísticas** con evolución temporal, promedios y distribución de estados.
 - **Gestión de recordatorios** dentro de la aplicación.
@@ -29,17 +29,30 @@ Tras la integración del motor OCR en la nube mediante Gemini, quedan las siguie
 - **Cifrado** o almacenamiento seguro reforzado.
 - **Sincronización en la nube** y exportación de informes en PDF/CSV.
 
-## Configuración de Gemini OCR
+## Configuración del OCR cloud
 
-Para que el reconocimiento automático por imagen funcione, se requiere configurar una API Key de Gemini:
+Para que el reconocimiento automático por imagen funcione en modo cloud, configura al menos una clave. El orden normal de uso en móvil es Gemini, GitHub Models, Gemini, GitHub Models, Groq, Groq y después respaldo offline.
 
-1. Obtén una API Key gratuita en [Google AI Studio](https://aistudio.google.com/).
-2. Crea un archivo llamado `.env.json` en la raíz del proyecto con la siguiente estructura (nunca lo añadas al repositorio Git, ya está incluido en `.gitignore`):
+1. Obtén una API Key de Gemini en [Google AI Studio](https://aistudio.google.com/).
+2. Opcionalmente, obtén una API key de Groq en [GroqCloud](https://console.groq.com/keys).
+3. Para GitHub Models, crea un Personal Access Token:
+   - En GitHub, ve a Settings > Developer settings > Personal access tokens.
+   - Crea un fine-grained token con permiso **Models: Read** (`models:read`). No necesita permisos de repositorio.
+   - Si usas un classic token, usa el scope **models**.
+4. Crea un archivo llamado `.env.json` en la raíz del proyecto con esta estructura (nunca lo añadas al repositorio Git, ya está incluido en `.gitignore`):
    ```json
    {
-     "GEMINI_API_KEY": "TU_API_KEY_AQUI"
+     "GEMINI_API_KEY": "TU_API_KEY_AQUI",
+     "GROQ_API_KEY": "TU_API_KEY_DE_GROQ_OPCIONAL",
+     "GITHUB_MODELS_TOKEN": "TU_PAT_DE_GITHUB_MODELS",
+     "GITHUB_MODELS_MODEL": "openai/gpt-4o-mini",
+     "FORCE_OFFLINE_OCR": false,
+     "FORCE_GITHUB_OCR": false,
+     "FORCE_GROQ_OCR": false
    }
    ```
+
+Para probar un motor concreto, cambia uno de los flags `FORCE_OFFLINE_OCR`, `FORCE_GITHUB_OCR` o `FORCE_GROQ_OCR` a `true`. El modelo por defecto de GitHub Models es `openai/gpt-4o-mini`; puedes sustituirlo por otro modelo multimodal del catálogo de GitHub Models siempre que acepte imágenes.
 
 ## Ejecución
 
@@ -49,12 +62,12 @@ Para instalar dependencias y ejecutar el proyecto:
 flutter pub get
 ```
 
-Ejecutar en móvil (Android/iOS) cargando la API key de Gemini:
+Ejecutar en móvil (Android/iOS) cargando las claves cloud:
 ```bash
 flutter run --dart-define-from-file=.env.json
 ```
 
-Para ejecutar en web con la clave de Gemini:
+Para ejecutar en web con las claves cloud:
 ```bash
 flutter run -d chrome --dart-define-from-file=.env.json
 ```

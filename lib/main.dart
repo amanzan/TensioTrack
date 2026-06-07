@@ -883,7 +883,13 @@ class CaptureScreen extends StatefulWidget {
 }
 
 class _CaptureScreenState extends State<CaptureScreen> {
-  static const _apiKey = String.fromEnvironment('GEMINI_API_KEY');
+  static const _geminiApiKey = String.fromEnvironment('GEMINI_API_KEY');
+  static const _githubModelsToken = String.fromEnvironment(
+    'GITHUB_MODELS_TOKEN',
+  );
+  static const _groqApiKey = String.fromEnvironment('GROQ_API_KEY');
+  static const _forceGithubOcr = bool.fromEnvironment('FORCE_GITHUB_OCR');
+  static const _forceGroqOcr = bool.fromEnvironment('FORCE_GROQ_OCR');
   Uint8List? _imageBytes;
   bool _processing = false;
   OcrResult? _ocrResult;
@@ -933,7 +939,14 @@ class _CaptureScreenState extends State<CaptureScreen> {
       _ocrError = null;
     });
 
-    if (_apiKey.isEmpty && kIsWeb) {
+    final webCloudKeyMissing = _forceGithubOcr
+        ? _githubModelsToken.isEmpty
+        : _forceGroqOcr
+            ? _groqApiKey.isEmpty
+            : _geminiApiKey.isEmpty &&
+                _githubModelsToken.isEmpty &&
+                _groqApiKey.isEmpty;
+    if (webCloudKeyMissing && kIsWeb) {
       if (!mounted) return;
       setState(() {
         _ocrFailed = true;
@@ -962,7 +975,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
         } else if (errorStr.contains('RESOURCE_EXHAUSTED') || errorStr.contains('429')) {
           userFriendlyMsg = 'Se ha superado el límite de peticiones de la clave API. Por favor, espera un minuto antes de reintentarlo.';
         } else if (errorStr.contains('400') || errorStr.contains('API_KEY_INVALID') || errorStr.contains('invalid key')) {
-          userFriendlyMsg = 'La clave API de Gemini no es válida o está mal configurada. Revisa tus variables de entorno.';
+          userFriendlyMsg = 'La clave API de Gemini, GitHub Models o Groq no es válida o está mal configurada. Revisa tus variables de entorno.';
         } else if (errorStr.contains('TimeoutException') || errorStr.contains('SocketException') || errorStr.contains('Network') || errorStr.contains('Failed host lookup')) {
           userFriendlyMsg = 'No se ha podido establecer conexión a internet. Comprueba tu red Wi-Fi o datos móviles.';
         } else {
@@ -1153,7 +1166,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
                   ),
                   const SizedBox(height: 10),
                   const Text(
-                    'No se ha detectado la clave API de Gemini necesaria para el reconocimiento inteligente.\n\n'
+                    'No se ha detectado ninguna clave API compatible para el reconocimiento inteligente.\n\n'
                     'Para solucionarlo desde Android Studio:\n'
                     ' 1. Abre el menú superior Run > Edit Configurations...\n'
                     ' 2. Selecciona tu configuración de Flutter (ej. main.dart).\n'
