@@ -667,6 +667,16 @@ class AppSettingsDrawer extends StatelessWidget {
               ),
             ),
             RadioListTile<OfflineOcrEngine>(
+              value: OfflineOcrEngine.hybrid,
+              groupValue: selectedOfflineEngine,
+              onChanged: (value) {
+                if (value != null) onOfflineEngineChanged(value);
+              },
+              title: const Text('Híbrido YOLO+CNN'),
+              secondary: const Icon(Icons.psychology_rounded),
+              activeColor: const Color(0xFF008D84),
+            ),
+            RadioListTile<OfflineOcrEngine>(
               value: OfflineOcrEngine.yolo,
               groupValue: selectedOfflineEngine,
               onChanged: (value) {
@@ -674,16 +684,6 @@ class AppSettingsDrawer extends StatelessWidget {
               },
               title: const Text('YOLO'),
               secondary: const Icon(Icons.center_focus_strong_rounded),
-              activeColor: const Color(0xFF008D84),
-            ),
-            RadioListTile<OfflineOcrEngine>(
-              value: OfflineOcrEngine.mlKit,
-              groupValue: selectedOfflineEngine,
-              onChanged: (value) {
-                if (value != null) onOfflineEngineChanged(value);
-              },
-              title: const Text('ML Kit'),
-              secondary: const Icon(Icons.text_fields_rounded),
               activeColor: const Color(0xFF008D84),
             ),
           ],

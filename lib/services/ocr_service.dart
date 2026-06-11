@@ -7,17 +7,17 @@ import 'ocr_service_stub.dart'
     if (dart.library.js_interop) 'ocr_service_web.dart';
 
 enum OfflineOcrEngine {
-  yolo,
-  mlKit;
+  hybrid,
+  yolo;
 
   String get label => switch (this) {
+    OfflineOcrEngine.hybrid => 'Híbrido YOLO+CNN',
     OfflineOcrEngine.yolo => 'YOLO',
-    OfflineOcrEngine.mlKit => 'ML Kit',
   };
 }
 
 class OfflineOcrConfig {
-  static OfflineOcrEngine engine = OfflineOcrEngine.yolo;
+  static OfflineOcrEngine engine = OfflineOcrEngine.hybrid;
 }
 
 /// Resultado del análisis OCR de una toma de presión.

@@ -1,13 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
-import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:http/http.dart' as http;
+import 'package:tflite_flutter/tflite_flutter.dart';
 
 import 'blood_pressure_digit_reader.dart';
 import 'ocr_service.dart';
@@ -99,13 +98,317 @@ class GeminiOcrService implements OcrService {
     );
 
     return switch (OfflineOcrConfig.engine) {
-      OfflineOcrEngine.yolo => _recognizeWithSelectedYolo(imageBytes),
-      OfflineOcrEngine.mlKit => _recognizeWithSelectedMlKit(
+      OfflineOcrEngine.hybrid => _recognizeWithSelectedHybrid(
         imagePath,
         imageBytes,
       ),
+      OfflineOcrEngine.yolo => _recognizeWithSelectedYolo(imageBytes),
     };
   }
+
+  Future<OcrResult?> _recognizeWithSelectedHybrid(
+    String imagePath,
+    Uint8List imageBytes,
+  ) async {
+    try {
+      debugPrint('TensioTrack: Ejecutando híbrido YOLO + CNN local...');
+      return await _recognizeWithHybrid(imagePath, imageBytes);
+    } catch (e) {
+      debugPrint('TensioTrack: Falló Híbrido en modo offline ($e).');
+      return null;
+    }
+  }
+
+  Future<OcrResult?> _recognizeWithHybrid(
+    String imagePath,
+    Uint8List imageBytes,
+  ) async {
+    debugPrint('TensioTrack: Inicializando pipeline híbrido (YOLO + CNN)...');
+
+    // 1. Ejecutar YOLO para obtener la localización de las cajas
+    final yoloResult = await _digitReader.readFromImageBytes(imageBytes);
+    if (yoloResult == null || yoloResult.detections.isEmpty) {
+      debugPrint('TensioTrack Híbrido: YOLO no detectó ningún dígito.');
+      return null;
+    }
+
+    // 2. Decodificar la imagen original
+    final Image originalImage;
+    double imageWidth = yoloResult.imageWidth.toDouble();
+    double imageHeight = yoloResult.imageHeight.toDouble();
+    try {
+      final codec = await instantiateImageCodec(imageBytes);
+      final frame = await codec.getNextFrame();
+      originalImage = frame.image;
+    } catch (e) {
+      debugPrint('TensioTrack Híbrido ERROR: No se pudo decodificar la imagen: $e');
+      return null;
+    }
+
+    // 3. Inicializar intérprete de la CNN
+    final cnnInterpreter = await Interpreter.fromAsset('digit_classifier.tflite');
+
+    // 4. Clasificar cada dígito con la CNN
+    final updatedDetections = <DigitDetection>[];
+
+    for (final det in yoloResult.detections) {
+      try {
+        final dh = det.y2 - det.y1;
+        final padX = dh * 0.07;
+        final padY = dh * 0.12;
+        
+        final x1 = (det.x1 - padX).clamp(0.0, imageWidth);
+        final y1 = (det.y1 - padY).clamp(0.0, imageHeight);
+        final x2 = (det.x2 + padX).clamp(0.0, imageWidth);
+        final y2 = (det.y2 + padY).clamp(0.0, imageHeight);
+        
+        final cropRect = Rect.fromLTRB(x1, y1, x2, y2);
+        
+        // Binarizar en resolución original y luego redimensionar a 28x28
+        final binBytes = await _preprocessDigitForCnn(originalImage, cropRect);
+        if (binBytes == null) continue;
+        
+        // Preparar entrada [1, 28, 28, 1]
+        final input = Float32List(1 * 28 * 28 * 1);
+        for (int i = 0; i < 28 * 28; i++) {
+          final r = binBytes[i * 4];
+          input[i] = (255 - r) / 255.0; // Invertir: fondo 0, texto 1
+        }
+        
+        final output = List.generate(
+          1,
+          (_) => List<double>.filled(10, 0.0, growable: false),
+          growable: false,
+        );
+        
+        cnnInterpreter.run(input.buffer, output);
+        
+        // Ensamble probabilístico: Combinar la predicción de la CNN con la de YOLO
+        // Le damos un peso al prior de YOLO y el restante a la CNN especializada.
+        final double yoloWeight = double.tryParse(const String.fromEnvironment('YOLO_WEIGHT')) ?? 0.50;
+        final combinedScores = List<double>.generate(10, (c) {
+          final cnnProb = output[0][c];
+          final yoloPrior = (c == det.digit) ? det.confidence : 0.0;
+          return cnnProb * (1.0 - yoloWeight) + yoloPrior * yoloWeight;
+        });
+
+        int predDigit = 0;
+        double maxScore = combinedScores[0];
+        for (int c = 1; c < 10; c++) {
+          if (combinedScores[c] > maxScore) {
+            maxScore = combinedScores[c];
+            predDigit = c;
+          }
+        }
+        
+        updatedDetections.add(
+          DigitDetection(
+            digit: predDigit,
+            confidence: maxScore,
+            x1: det.x1,
+            y1: det.y1,
+            x2: det.x2,
+            y2: det.y2,
+          ),
+        );
+      } catch (e) {
+        debugPrint('Error clasificando dígito individual: $e');
+      }
+    }
+
+    cnnInterpreter.close();
+
+    if (updatedDetections.isEmpty) return null;
+
+    // 5. Agrupar en filas usando la lógica de YOLO
+    final rows = _groupRows(updatedDetections);
+    if (rows.length < 2) {
+      debugPrint('TensioTrack Híbrido: Detecciones insuficientes para SYS/DIA (filas=${rows.length}).');
+      return null;
+    }
+
+    final rowValues = rows
+        .map((row) => int.tryParse(row.map((d) => d.digit).join()))
+        .whereType<int>()
+        .toList(growable: false);
+
+    if (rowValues.length < 2) return null;
+
+    int sysVal = rowValues[0];
+    int diaVal = rowValues[1];
+    if (sysVal < diaVal) {
+      final temp = sysVal;
+      sysVal = diaVal;
+      diaVal = temp;
+    }
+
+    final firstTwoRows = rows.take(2).expand((row) => row);
+    final confidence =
+        firstTwoRows.map((d) => d.confidence).reduce((a, b) => a + b) /
+        firstTwoRows.length;
+
+    debugPrint('TensioTrack Híbrido: Extraído SYS=$sysVal, DIA=$diaVal (conf=${confidence.toStringAsFixed(2)})');
+
+    return OcrResult(
+      systolic: sysVal,
+      diastolic: diaVal,
+      systolicBox: _rowBoundingBox(rows[0]),
+      diastolicBox: _rowBoundingBox(rows[1]),
+      imageWidth: imageWidth,
+      imageHeight: imageHeight,
+      confidence: confidence,
+      engineName: 'Híbrido YOLO + CNN (Offline)',
+    );
+  }
+
+
+  /// Realiza binarización adaptativa local (Bradley-Roth) sobre la resolución original
+  /// y luego redimensiona a 28x28, para alimentar el clasificador CNN.
+  Future<Uint8List?> _preprocessDigitForCnn(Image originalImage, Rect cropRect) async {
+    final double width = cropRect.width;
+    final double height = cropRect.height;
+    if (width <= 0 || height <= 0) return null;
+
+    final recorder = PictureRecorder();
+    final canvas = Canvas(recorder);
+    canvas.drawImageRect(
+      originalImage,
+      cropRect,
+      Rect.fromLTWH(0, 0, width, height),
+      Paint()..filterQuality = FilterQuality.high,
+    );
+    final picture = recorder.endRecording();
+    final cropped = await picture.toImage(width.toInt(), height.toInt());
+
+    final byteData = await cropped.toByteData(format: ImageByteFormat.rawRgba);
+    if (byteData == null) return null;
+    final pixels = byteData.buffer.asUint8List();
+    final w = cropped.width;
+    final h = cropped.height;
+
+    // 1. Convertir a escala de grises
+    final grays = Uint8List(w * h);
+    for (int i = 0; i < pixels.length; i += 4) {
+      int r = pixels[i];
+      int g = pixels[i + 1];
+      int b = pixels[i + 2];
+      grays[i ~/ 4] = (0.299 * r + 0.587 * g + 0.114 * b).round().clamp(0, 255);
+    }
+
+    // 2. Imagen integral
+    final integral = Int32List(w * h);
+    for (int y = 0; y < h; y++) {
+      int rowSum = 0;
+      for (int x = 0; x < w; x++) {
+        rowSum += grays[y * w + x];
+        if (y == 0) {
+          integral[y * w + x] = rowSum;
+        } else {
+          integral[y * w + x] = integral[(y - 1) * w + x] + rowSum;
+        }
+      }
+    }
+
+    // 3. Umbral adaptativo local (Bradley-Roth)
+    // Emula cv2.adaptiveThreshold con blockSize=25 y C=9
+    final int s = 25.clamp(7, math.min(w, h));
+    const double t = 0.08;
+
+    final binarizedGrays = Uint8List(w * h);
+    for (int y = 0; y < h; y++) {
+      for (int x = 0; x < w; x++) {
+        int x1 = (x - s ~/ 2).clamp(0, w - 1);
+        int x2 = (x + s ~/ 2).clamp(0, w - 1);
+        int y1 = (y - s ~/ 2).clamp(0, h - 1);
+        int y2 = (y + s ~/ 2).clamp(0, h - 1);
+
+        int count = (x2 - x1 + 1) * (y2 - y1 + 1);
+        int sum = integral[y2 * w + x2];
+        if (x1 > 0) sum -= integral[y2 * w + (x1 - 1)];
+        if (y1 > 0) sum -= integral[(y1 - 1) * w + x2];
+        if (x1 > 0 && y1 > 0) sum += integral[(y1 - 1) * w + (x1 - 1)];
+
+        int gray = grays[y * w + x];
+        binarizedGrays[y * w + x] = (gray * count < sum * (1.0 - t)) ? 0 : 255;
+      }
+    }
+
+    // 4. Convertir binarizado a formato RGBA
+    final binarizedRgba = Uint8List(w * h * 4);
+    for (int i = 0; i < w * h; i++) {
+      final val = binarizedGrays[i];
+      binarizedRgba[i * 4] = val;
+      binarizedRgba[i * 4 + 1] = val;
+      binarizedRgba[i * 4 + 2] = val;
+      binarizedRgba[i * 4 + 3] = 255;
+    }
+
+    // 5. Instanciar Image de UI a partir de los bytes binarizados
+    final completer = Completer<Image>();
+    decodeImageFromPixels(
+      binarizedRgba,
+      w,
+      h,
+      PixelFormat.rgba8888,
+      completer.complete,
+    );
+    final binImage = await completer.future;
+
+    // 6. Redimensionar a 28x28 usando Canvas
+    final recorderResize = PictureRecorder();
+    final canvasResize = Canvas(recorderResize);
+    canvasResize.drawImageRect(
+      binImage,
+      Rect.fromLTWH(0, 0, w.toDouble(), h.toDouble()),
+      Rect.fromLTWH(0, 0, 28, 28),
+      Paint()..filterQuality = FilterQuality.high,
+    );
+    final pictureResize = recorderResize.endRecording();
+    final resizedImage = await pictureResize.toImage(28, 28);
+
+    final resizedByteData = await resizedImage.toByteData(format: ImageByteFormat.rawRgba);
+    if (resizedByteData == null) return null;
+    return resizedByteData.buffer.asUint8List();
+  }
+
+  List<List<DigitDetection>> _groupRows(List<DigitDetection> detections) {
+    if (detections.isEmpty) return const [];
+
+    final sorted = [...detections]..sort((a, b) => a.cy.compareTo(b.cy));
+    final avgHeight =
+        sorted.map((d) => d.height).reduce((a, b) => a + b) / sorted.length;
+    final yThreshold = avgHeight * 0.6; // rowYThresholdFactor = 0.6
+    final rows = <List<DigitDetection>>[];
+
+    for (final detection in sorted) {
+      var placed = false;
+
+      for (final row in rows) {
+        final rowCy = _averageCy(row);
+        if ((detection.cy - rowCy).abs() < yThreshold) {
+          row.add(detection);
+          placed = true;
+          break;
+        }
+      }
+
+      if (!placed) {
+        rows.add([detection]);
+      }
+    }
+
+    for (final row in rows) {
+      row.sort((a, b) => a.cx.compareTo(b.cx));
+    }
+    rows.sort((a, b) => _averageCy(a).compareTo(_averageCy(b)));
+    return rows;
+  }
+
+  double _averageCy(List<DigitDetection> row) {
+    return row.map((d) => d.cy).reduce((a, b) => a + b) / row.length;
+  }
+
+
 
   Future<OcrResult?> _recognizeWithSelectedYolo(Uint8List imageBytes) async {
     try {
@@ -116,18 +419,6 @@ class GeminiOcrService implements OcrService {
     }
   }
 
-  Future<OcrResult?> _recognizeWithSelectedMlKit(
-    String imagePath,
-    Uint8List imageBytes,
-  ) async {
-    try {
-      debugPrint('TensioTrack: Ejecutando ML Kit local...');
-      return await _recognizeWithMlKit(imagePath, imageBytes);
-    } catch (e) {
-      debugPrint('TensioTrack: Falló ML Kit en modo offline ($e).');
-      return null;
-    }
-  }
 
   Future<OcrResult?> _recognizeWithYoloDigits(Uint8List imageBytes) async {
     debugPrint('TensioTrack YOLOv8 TFLite: ejecutando detección de dígitos...');
@@ -281,500 +572,8 @@ class GeminiOcrService implements OcrService {
     );
   }
 
-  /// OCR en local y offline usando Google ML Kit con preprocesamiento avanzado
-  Future<OcrResult?> _recognizeWithMlKit(
-    String imagePath,
-    Uint8List imageBytes,
-  ) async {
-    debugPrint(
-      'TensioTrack: Inicializando TextRecognizer local de ML Kit con 2 pases...',
-    );
 
-    // Decodificar imagen para obtener dimensiones reales y objeto de imagen para recortar
-    double imageWidth = 1000;
-    double imageHeight = 1000;
-    Image? originalImage;
-    try {
-      final codec = await instantiateImageCodec(imageBytes);
-      final frame = await codec.getNextFrame();
-      originalImage = frame.image;
-      imageWidth = originalImage.width.toDouble();
-      imageHeight = originalImage.height.toDouble();
-    } catch (e) {
-      debugPrint('TensioTrack ERROR: No se pudo decodificar la imagen: $e');
-    }
 
-    final textRecognizer = TextRecognizer(script: TextRecognitionScript.latin);
-    try {
-      // Pase 1: Reconocimiento de texto en la imagen original para buscar etiquetas
-      final inputImage = InputImage.fromFilePath(imagePath);
-      final recognizedText = await textRecognizer.processImage(inputImage);
-
-      debugPrint('================ PASO 1: OCR DE ALINEACION ================');
-      debugPrint('Texto total reconocido:\n"${recognizedText.text}"');
-
-      Rect? sysLabelRect;
-      Rect? diaLabelRect;
-
-      for (final block in recognizedText.blocks) {
-        for (final line in block.lines) {
-          final text = line.text.toUpperCase();
-          debugPrint('Alineación - Línea: "$text" | Rect: ${line.boundingBox}');
-          if (text.contains('SYS')) {
-            sysLabelRect = line.boundingBox;
-          } else if (text.contains('DIA')) {
-            diaLabelRect = line.boundingBox;
-          }
-        }
-      }
-      debugPrint('===========================================================');
-
-      // Calcular regiones de interés (ROI)
-      Rect? sysCropRect;
-      Rect? diaCropRect;
-
-      if (sysLabelRect != null) {
-        // Desplazado horizontalmente más a la derecha (factor 2.2) para saltar el marco negro de plástico de la pantalla LCD
-        final labelHeight = sysLabelRect.height;
-        final left = sysLabelRect.right + labelHeight * 2.2;
-        final top = sysLabelRect.top - labelHeight * 1.0;
-        final width = sysLabelRect.width * 6.0;
-        final height = labelHeight * 4.5;
-
-        sysCropRect = Rect.fromLTWH(
-          left.clamp(0.0, imageWidth - 10),
-          top.clamp(0.0, imageHeight - 10),
-          width.clamp(10.0, imageWidth - left),
-          height.clamp(10.0, imageHeight - top),
-        );
-        debugPrint('SYS ROI calculada: $sysCropRect');
-      }
-
-      if (diaLabelRect != null) {
-        final labelHeight = diaLabelRect.height;
-        final left = diaLabelRect.right + labelHeight * 2.2;
-        final top = diaLabelRect.top - labelHeight * 1.0;
-        final width = diaLabelRect.width * 6.0;
-        final height = labelHeight * 4.5;
-
-        diaCropRect = Rect.fromLTWH(
-          left.clamp(0.0, imageWidth - 10),
-          top.clamp(0.0, imageHeight - 10),
-          width.clamp(10.0, imageWidth - left),
-          height.clamp(10.0, imageHeight - top),
-        );
-        debugPrint('DIA ROI calculada: $diaCropRect');
-      }
-
-      // Si no se encuentran etiquetas, usar proporciones centrales predeterminadas (Omron)
-      if (sysCropRect == null && originalImage != null) {
-        sysCropRect = Rect.fromLTWH(
-          imageWidth * 0.30,
-          imageHeight * 0.20,
-          imageWidth * 0.50,
-          imageHeight * 0.25,
-        );
-        debugPrint('SYS ROI default: $sysCropRect');
-      }
-      if (diaCropRect == null && originalImage != null) {
-        diaCropRect = Rect.fromLTWH(
-          imageWidth * 0.30,
-          imageHeight * 0.45,
-          imageWidth * 0.50,
-          imageHeight * 0.25,
-        );
-        debugPrint('DIA ROI default: $diaCropRect');
-      }
-
-      int sysVal = 0;
-      int diaVal = 0;
-
-      final tempPaths = <String>[];
-
-      // Procesar SYS
-      if (sysCropRect != null && originalImage != null) {
-        try {
-          final sysCrop = await _cropImage(originalImage, sysCropRect);
-
-          // 1. Intentar con el recorte crudo (solo escalado)
-          final sysRawPath = await _saveImageToTempFile(sysCrop, 'sys_raw');
-          tempPaths.add(sysRawPath);
-          final sysRawRecText = await textRecognizer.processImage(
-            InputImage.fromFilePath(sysRawPath),
-          );
-          debugPrint('OCR SYS crudo recortado: "${sysRawRecText.text}"');
-          sysVal = _extractCleanNumber(sysRawRecText.text) ?? 0;
-
-          // 2. Si falló, aplicar preprocesamiento avanzado
-          if (sysVal == 0) {
-            final sysBytes = await _preprocessRegion(sysCrop);
-            if (sysBytes != null) {
-              final path = await _saveRgbaBytesToTempFile(
-                sysBytes,
-                sysCrop.width,
-                sysCrop.height,
-                'sys_bin',
-              );
-              tempPaths.add(path);
-
-              final sysRecText = await textRecognizer.processImage(
-                InputImage.fromFilePath(path),
-              );
-              debugPrint(
-                'OCR SYS binarizado adaptativo recortado: "${sysRecText.text}"',
-              );
-              sysVal = _extractCleanNumber(sysRecText.text) ?? 0;
-            }
-          }
-        } catch (e) {
-          debugPrint('Error procesando ROI SYS: $e');
-        }
-      }
-
-      // Procesar DIA
-      if (diaCropRect != null && originalImage != null) {
-        try {
-          final diaCrop = await _cropImage(originalImage, diaCropRect);
-
-          // 1. Intentar con el recorte crudo (solo escalado)
-          final diaRawPath = await _saveImageToTempFile(diaCrop, 'dia_raw');
-          tempPaths.add(diaRawPath);
-          final diaRawRecText = await textRecognizer.processImage(
-            InputImage.fromFilePath(diaRawPath),
-          );
-          debugPrint('OCR DIA crudo recortado: "${diaRawRecText.text}"');
-          diaVal = _extractCleanNumber(diaRawRecText.text) ?? 0;
-
-          // 2. Si falló, aplicar preprocesamiento avanzado
-          if (diaVal == 0) {
-            final diaBytes = await _preprocessRegion(diaCrop);
-            if (diaBytes != null) {
-              final path = await _saveRgbaBytesToTempFile(
-                diaBytes,
-                diaCrop.width,
-                diaCrop.height,
-                'dia_bin',
-              );
-              tempPaths.add(path);
-
-              final diaRecText = await textRecognizer.processImage(
-                InputImage.fromFilePath(path),
-              );
-              debugPrint(
-                'OCR DIA binarizado adaptativo recortado: "${diaRecText.text}"',
-              );
-              diaVal = _extractCleanNumber(diaRecText.text) ?? 0;
-            }
-          }
-        } catch (e) {
-          debugPrint('Error procesando ROI DIA: $e');
-        }
-      }
-
-      // Limpiar archivos temporales (comentado temporalmente para permitir inspección/depuración)
-      /*
-      for (final p in tempPaths) {
-        try {
-          final f = File(p);
-          if (await f.exists()) {
-            await f.delete();
-          }
-        } catch (_) {}
-      }
-      */
-
-      // Si falló el reconocimiento segmentado por completo, aplicar el fallback heurístico en la imagen original
-      if (sysVal == 0 || diaVal == 0) {
-        debugPrint(
-          'Advertencia: El OCR segmentado falló. Aplicando fallback heurístico en imagen original...',
-        );
-        final List<MapEntry<int, Rect>> candidateNumbers = [];
-        for (final block in recognizedText.blocks) {
-          for (final line in block.lines) {
-            final matches = RegExp(r'\d+').allMatches(line.text);
-            for (final match in matches) {
-              final val = int.tryParse(match.group(0)!);
-              if (val != null && val >= 35 && val <= 240) {
-                candidateNumbers.add(MapEntry(val, line.boundingBox));
-              }
-            }
-          }
-        }
-
-        if (candidateNumbers.length >= 2) {
-          candidateNumbers.sort((a, b) => a.value.top.compareTo(b.value.top));
-          sysVal = candidateNumbers[0].key;
-          diaVal = candidateNumbers[1].key;
-        } else if (candidateNumbers.length == 1) {
-          final val = candidateNumbers[0].key;
-          if (val >= 95) {
-            sysVal = val;
-          } else {
-            diaVal = val;
-          }
-        }
-      }
-
-      if (sysVal == 0 && diaVal == 0) {
-        debugPrint('TensioTrack: ML Kit local no encontró ningún valor.');
-        return null;
-      }
-
-      // Asegurar que SYS > DIA por lógica fisiológica básica
-      if (sysVal > 0 && diaVal > 0 && sysVal < diaVal) {
-        final temp = sysVal;
-        sysVal = diaVal;
-        diaVal = temp;
-      }
-
-      debugPrint(
-        'TensioTrack: ML Kit local extrajo exitosamente SYS=$sysVal, DIA=$diaVal',
-      );
-
-      return OcrResult(
-        systolic: sysVal,
-        diastolic: diaVal,
-        systolicBox: sysCropRect,
-        diastolicBox: diaCropRect,
-        imageWidth: imageWidth,
-        imageHeight: imageHeight,
-        confidence: (sysVal > 0 && diaVal > 0) ? 0.90 : 0.50,
-        engineName: 'Google ML Kit (Local)',
-      );
-    } finally {
-      await textRecognizer.close();
-    }
-  }
-
-  /// Recorta un sub-rectángulo de la imagen original, escalándolo por un factor de 2.0
-  /// para garantizar que la imagen resultante tenga un tamaño óptimo para el motor de ML Kit.
-  Future<Image> _cropImage(Image src, Rect cropRect) async {
-    final recorder = PictureRecorder();
-    final canvas = Canvas(recorder);
-    final srcRect = cropRect;
-
-    // Escalar por 2.0x para mejorar la resolución y que ML Kit reconozca mejor los dígitos pequeños
-    final double scale = 2.0;
-    final destRect = Rect.fromLTWH(
-      0,
-      0,
-      cropRect.width * scale,
-      cropRect.height * scale,
-    );
-
-    canvas.drawImageRect(
-      src,
-      srcRect,
-      destRect,
-      Paint()..filterQuality = FilterQuality.high,
-    );
-    final picture = recorder.endRecording();
-    return await picture.toImage(
-      (cropRect.width * scale).toInt(),
-      (cropRect.height * scale).toInt(),
-    );
-  }
-
-  /// Realiza binarización adaptativa local (Bradley-Roth) y dilatación binaria sobre la región recortada
-  Future<Uint8List?> _preprocessRegion(Image croppedImage) async {
-    final byteData = await croppedImage.toByteData(
-      format: ImageByteFormat.rawRgba,
-    );
-    if (byteData == null) return null;
-    final pixels = byteData.buffer.asUint8List();
-    final w = croppedImage.width;
-    final h = croppedImage.height;
-
-    // 1. Convertir a escala de grises
-    final grays = Uint8List(w * h);
-    for (int i = 0; i < pixels.length; i += 4) {
-      int r = pixels[i];
-      int g = pixels[i + 1];
-      int b = pixels[i + 2];
-      grays[i ~/ 4] = (0.299 * r + 0.587 * g + 0.114 * b).round().clamp(0, 255);
-    }
-
-    // 2. Construir imagen integral
-    final integral = Int32List(w * h);
-    for (int y = 0; y < h; y++) {
-      int rowSum = 0;
-      for (int x = 0; x < w; x++) {
-        rowSum += grays[y * w + x];
-        if (y == 0) {
-          integral[y * w + x] = rowSum;
-        } else {
-          integral[y * w + x] = integral[(y - 1) * w + x] + rowSum;
-        }
-      }
-    }
-
-    // 3. Aplicar umbral adaptativo local (Bradley-Roth)
-    final binarized = Uint8List(pixels.length);
-    final int s = (w / 8).round().clamp(7, 100); // Tamaño de ventana local
-    const double t =
-        0.15; // Un pixel debe ser un 15% más oscuro que su entorno local para ser negro
-
-    int blackCount = 0;
-    int whiteCount = 0;
-
-    for (int y = 0; y < h; y++) {
-      for (int x = 0; x < w; x++) {
-        int x1 = (x - s ~/ 2).clamp(0, w - 1);
-        int x2 = (x + s ~/ 2).clamp(0, w - 1);
-        int y1 = (y - s ~/ 2).clamp(0, h - 1);
-        int y2 = (y + s ~/ 2).clamp(0, h - 1);
-
-        int count = (x2 - x1 + 1) * (y2 - y1 + 1);
-
-        // Calcular la suma de la ventana usando la imagen integral
-        int sum = integral[y2 * w + x2];
-        if (x1 > 0) {
-          sum -= integral[y2 * w + (x1 - 1)];
-        }
-        if (y1 > 0) {
-          sum -= integral[(y1 - 1) * w + x2];
-        }
-        if (x1 > 0 && y1 > 0) {
-          sum += integral[(y1 - 1) * w + (x1 - 1)];
-        }
-
-        int gray = grays[y * w + x];
-
-        // Binarizar: si el pixel es significativamente más oscuro que el promedio local, es texto (negro)
-        int color = (gray * count < sum * (1.0 - t)) ? 0 : 255;
-
-        int idx = (y * w + x) * 4;
-        binarized[idx] = color;
-        binarized[idx + 1] = color;
-        binarized[idx + 2] = color;
-        binarized[idx + 3] = 255; // Alpha
-
-        if (color == 0) {
-          blackCount++;
-        } else {
-          whiteCount++;
-        }
-      }
-    }
-
-    debugPrint(
-      'TensioTrack Preprocess [${croppedImage.hashCode}]: Adaptive binarized black pixels = $blackCount (Ratio: ${(blackCount / (w * h) * 100).toStringAsFixed(1)}%), white = $whiteCount',
-    );
-
-    // 4. Dilatación binaria doble para rellenar huecos en los 7 segmentos
-    final dilated1 = _dilate(binarized, w, h);
-    final dilated2 = _dilate(dilated1, w, h);
-
-    int dilatedBlackCount = 0;
-    for (int i = 0; i < dilated2.length; i += 4) {
-      if (dilated2[i] == 0) {
-        dilatedBlackCount++;
-      }
-    }
-    debugPrint(
-      'TensioTrack Preprocess [${croppedImage.hashCode}]: Dilated black pixels = $dilatedBlackCount (Ratio: ${(dilatedBlackCount / (w * h) * 100).toStringAsFixed(1)}%)',
-    );
-
-    return dilated2;
-  }
-
-  /// Aplica una dilatación morfológica 3x3 (expansión de pixeles negros de foreground)
-  Uint8List _dilate(Uint8List source, int width, int height) {
-    final output = Uint8List(source.length);
-    output.fillRange(0, output.length, 255);
-    for (int i = 3; i < output.length; i += 4) {
-      output[i] = 255;
-    }
-
-    for (int y = 1; y < height - 1; y++) {
-      for (int x = 1; x < width - 1; x++) {
-        bool hasForeground = false;
-        for (int ky = -1; ky <= 1; ky++) {
-          for (int kx = -1; kx <= 1; kx++) {
-            int idx = ((y + ky) * width + (x + kx)) * 4;
-            if (source[idx] == 0) {
-              hasForeground = true;
-              break;
-            }
-          }
-          if (hasForeground) break;
-        }
-
-        int outIdx = (y * width + x) * 4;
-        if (hasForeground) {
-          output[outIdx] = 0;
-          output[outIdx + 1] = 0;
-          output[outIdx + 2] = 0;
-        }
-      }
-    }
-    return output;
-  }
-
-  /// Guarda una imagen Dart UI en un archivo PNG temporal y retorna la ruta
-  Future<String> _saveImageToTempFile(Image image, String prefix) async {
-    final byteData = await image.toByteData(format: ImageByteFormat.png);
-    final pngBytes = byteData!.buffer.asUint8List();
-
-    final tempDir = Directory.systemTemp;
-    final tempFile = File('${tempDir.path}/temp_ocr_crop_$prefix.png');
-    await tempFile.writeAsBytes(pngBytes);
-    debugPrint(
-      'TensioTrack Preprocess [${image.hashCode}]: Saved cropped $prefix image to: ${tempFile.path} (${pngBytes.length} bytes)',
-    );
-    return tempFile.path;
-  }
-
-  /// Guarda los bytes RGBA en un archivo PNG temporal y retorna la ruta
-  Future<String> _saveRgbaBytesToTempFile(
-    Uint8List pixels,
-    int width,
-    int height,
-    String prefix,
-  ) async {
-    final completer = Completer<Image>();
-    decodeImageFromPixels(
-      pixels,
-      width,
-      height,
-      PixelFormat.rgba8888,
-      completer.complete,
-    );
-    final image = await completer.future;
-    return await _saveImageToTempFile(image, prefix);
-  }
-
-  /// Extrae números de cadenas y aplica mapeo corrector de 7 segmentos
-  int? _extractCleanNumber(String rawText) {
-    final lines = rawText.split('\n');
-    final List<int> candidates = [];
-
-    for (var line in lines) {
-      String mapped = line.toUpperCase().trim();
-
-      // Mapeos de caracteres de 7 segmentos a dígitos equivalentes
-      mapped = mapped.replaceAll(RegExp(r'[ILi|!\\\\\\\\[\\\\\\\\]]'), '1');
-      mapped = mapped.replaceAll(RegExp(r'[OoD]'), '0');
-      mapped = mapped.replaceAll(RegExp(r'[S]'), '5');
-      mapped = mapped.replaceAll(RegExp(r'[B]'), '8');
-      mapped = mapped.replaceAll(RegExp(r'[Z]'), '2');
-      mapped = mapped.replaceAll(RegExp(r'[Gg]'), '6');
-      mapped = mapped.replaceAll(RegExp(r'[A]'), '4');
-      mapped = mapped.replaceAll(RegExp(r'[T]'), '7');
-
-      // Buscar grupos de dígitos en la línea
-      final matches = RegExp(r'\d+').allMatches(mapped);
-      for (final match in matches) {
-        final val = int.tryParse(match.group(0)!);
-        if (val != null && val >= 30 && val <= 250) {
-          candidates.add(val);
-        }
-      }
-    }
-
-    if (candidates.isEmpty) return null;
-    return candidates.first;
-  }
 
   /// OCR en la nube usando Gemini Vision API
   Future<OcrResult?> _recognizeWithGemini(Uint8List imageBytes) async {

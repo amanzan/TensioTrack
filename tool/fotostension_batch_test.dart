@@ -54,10 +54,13 @@ void main() {
         ? BloodPressureDigitReader(modelAssetPath: modelAsset)
         : null;
     GeminiOcrService.forceOfflineOcr = true;
-    OfflineOcrConfig.engine = OfflineOcrEngine.mlKit;
-    final mlKitService = engine == _BatchOcrEngine.mlKit
-        ? GeminiOcrService()
-        : null;
+    OfflineOcrConfig.engine = switch (engine) {
+      _BatchOcrEngine.yolo => OfflineOcrEngine.yolo,
+      _BatchOcrEngine.hybrid => OfflineOcrEngine.hybrid,
+    };
+    final ocrService = engine == _BatchOcrEngine.yolo
+        ? null
+        : GeminiOcrService();
     var ok = 0;
     var failed = 0;
 
@@ -82,8 +85,8 @@ void main() {
           final result = await reader!.readFromImagePath(file.path);
           detectedSys = result?.systolic;
           detectedDia = result?.diastolic;
-        case _BatchOcrEngine.mlKit:
-          final result = await mlKitService!.recognizePressure(
+        case _BatchOcrEngine.hybrid:
+          final result = await ocrService!.recognizePressure(
             file.path,
             await file.readAsBytes(),
           );
@@ -111,11 +114,11 @@ void main() {
   }, timeout: const Timeout(Duration(minutes: 5)));
 }
 
-enum _BatchOcrEngine { yolo, mlKit }
+enum _BatchOcrEngine { yolo, hybrid }
 
 _BatchOcrEngine _batchEngineFromName(String name) {
   return switch (name.toLowerCase().trim()) {
-    'legacy' || 'mlkit' || 'ml_kit' || 'ml-kit' => _BatchOcrEngine.mlKit,
+    'hybrid' || 'hibrido' => _BatchOcrEngine.hybrid,
     _ => _BatchOcrEngine.yolo,
   };
 }
