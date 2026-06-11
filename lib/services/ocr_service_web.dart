@@ -22,8 +22,6 @@ class GeminiWebOcrService implements OcrService {
     'GITHUB_MODELS_MODEL',
     defaultValue: 'openai/gpt-4o-mini',
   );
-  static const _forceGithubOcr = bool.fromEnvironment('FORCE_GITHUB_OCR');
-  static const _forceGroqOcr = bool.fromEnvironment('FORCE_GROQ_OCR');
   static const _timeout = Duration(seconds: 60);
 
   @override
@@ -31,19 +29,40 @@ class GeminiWebOcrService implements OcrService {
     String imagePath,
     Uint8List imageBytes,
   ) async {
-    try {
-      debugPrint(
-        _forceGithubOcr
-            ? 'TensioTrack Web: Modo cloud forzado a GitHub Models.'
-            : _forceGroqOcr
-            ? 'TensioTrack Web: Modo cloud forzado a Groq.'
-            : 'TensioTrack Web: Modo cloud Gemini -> GitHub Models -> Gemini -> GitHub Models -> Groq -> Groq.',
-      );
-      return _recognizeWithCloudProvidersWithRetries(imageBytes);
-    } catch (e) {
-      debugPrint('TensioTrack Web OCR ERROR: $e');
-      rethrow;
+    var selectedEngine = OcrConfig.engine;
+    if (selectedEngine == OcrEngine.hybrid || selectedEngine == OcrEngine.yolo) {
+      debugPrint('TensioTrack Web: Motor local/offline no soportado en Web. Usando Gemini Vision.');
+      selectedEngine = OcrEngine.gemini;
     }
+
+    final label = selectedEngine.label;
+    Object? lastError;
+    const totalAttempts = 3;
+
+    for (int attempt = 1; attempt <= totalAttempts; attempt++) {
+      try {
+        debugPrint('TensioTrack Web: Intentando $label (intento $attempt/$totalAttempts)...');
+        final result = await switch (selectedEngine) {
+          OcrEngine.gemini => _recognizeWithGemini(imageBytes),
+          OcrEngine.github => _recognizeWithGithub(imageBytes),
+          OcrEngine.groq => _recognizeWithGroq(imageBytes),
+          _ => null,
+        };
+        if (result != null) {
+          return result;
+        }
+      } catch (e) {
+        lastError = e;
+        debugPrint('TensioTrack Web: Intento $attempt/$totalAttempts con $label falló ($e).');
+      }
+
+      if (attempt < totalAttempts) {
+        await Future<void>.delayed(Duration(milliseconds: 700 * attempt));
+      }
+    }
+
+    if (lastError != null) throw lastError;
+    return null;
   }
 
   Future<OcrResult?> _recognizeWithGemini(Uint8List imageBytes) async {
@@ -107,58 +126,6 @@ Do NOT include any other text, explanation, units, or formatting.''';
     );
   }
 
-  Future<OcrResult?> _recognizeWithCloudProvidersWithRetries(
-    Uint8List imageBytes,
-  ) async {
-    Object? lastError;
-    final providerPlan = _cloudProviderPlan();
-
-    for (var index = 0; index < providerPlan.length; index++) {
-      final attempt = index + 1;
-      final provider = providerPlan[index];
-      try {
-        debugPrint(
-          'TensioTrack Web ${provider.label}: intento $attempt/${providerPlan.length}...',
-        );
-        final result = switch (provider) {
-          _CloudOcrProvider.gemini => await _recognizeWithGemini(imageBytes),
-          _CloudOcrProvider.github => await _recognizeWithGithub(imageBytes),
-          _CloudOcrProvider.groq => await _recognizeWithGroq(imageBytes),
-        };
-        if (result != null) return result;
-      } catch (e) {
-        lastError = e;
-        debugPrint(
-          'TensioTrack Web ${provider.label}: intento $attempt/${providerPlan.length} falló ($e).',
-        );
-      }
-
-      if (attempt < providerPlan.length) {
-        await Future<void>.delayed(Duration(milliseconds: 700 * attempt));
-      }
-    }
-
-    if (lastError != null) throw lastError;
-    return null;
-  }
-
-  List<_CloudOcrProvider> _cloudProviderPlan() {
-    if (_forceGithubOcr) {
-      return const [_CloudOcrProvider.github, _CloudOcrProvider.github];
-    }
-    if (_forceGroqOcr) {
-      return const [_CloudOcrProvider.groq, _CloudOcrProvider.groq];
-    }
-
-    return const [
-      _CloudOcrProvider.gemini,
-      _CloudOcrProvider.github,
-      _CloudOcrProvider.gemini,
-      _CloudOcrProvider.github,
-      _CloudOcrProvider.groq,
-      _CloudOcrProvider.groq,
-    ];
-  }
 
   Future<OcrResult?> _recognizeWithGithub(Uint8List imageBytes) async {
     if (_githubModelsToken.isEmpty) {
@@ -448,12 +415,3 @@ class _PressureValues {
   final int diastolic;
 }
 
-enum _CloudOcrProvider {
-  gemini('Gemini'),
-  github('GitHub Models'),
-  groq('Groq');
-
-  const _CloudOcrProvider(this.label);
-
-  final String label;
-}

@@ -420,7 +420,7 @@ class MainShell extends StatefulWidget {
 }
 
 class _MainShellState extends State<MainShell> {
-  static const _offlineEnginePrefKey = 'offline_ocr_engine';
+  static const _ocrEnginePrefKey = 'ocr_engine';
   static const int _homeTab = 0;
   static const int _captureTab = 1;
   static const int _historyTab = 2;
@@ -429,13 +429,13 @@ class _MainShellState extends State<MainShell> {
 
   int _index = 0;
   bool _autoStartCamera = false;
-  OfflineOcrEngine _offlineEngine = OfflineOcrConfig.engine;
+  OcrEngine _ocrEngine = OcrConfig.engine;
   StreamSubscription<String?>? _notificationSub;
 
   @override
   void initState() {
     super.initState();
-    _loadOfflineEngine();
+    _loadOcrEngine();
 
     // 1. Escuchar clicks de notificación si la app está en segundo plano o activa
     _notificationSub = NotificationService().onNotificationClick.listen((
@@ -468,24 +468,24 @@ class _MainShellState extends State<MainShell> {
     });
   }
 
-  Future<void> _loadOfflineEngine() async {
+  Future<void> _loadOcrEngine() async {
     final prefs = await SharedPreferences.getInstance();
-    final saved = prefs.getString(_offlineEnginePrefKey);
-    final engine = OfflineOcrEngine.values.firstWhere(
+    final saved = prefs.getString(_ocrEnginePrefKey);
+    final engine = OcrEngine.values.firstWhere(
       (value) => value.name == saved,
-      orElse: () => OfflineOcrConfig.engine,
+      orElse: () => OcrConfig.engine,
     );
-    OfflineOcrConfig.engine = engine;
+    OcrConfig.engine = engine;
     if (mounted) {
-      setState(() => _offlineEngine = engine);
+      setState(() => _ocrEngine = engine);
     }
   }
 
-  Future<void> _setOfflineEngine(OfflineOcrEngine engine) async {
-    setState(() => _offlineEngine = engine);
-    OfflineOcrConfig.engine = engine;
+  Future<void> _setOcrEngine(OcrEngine engine) async {
+    setState(() => _ocrEngine = engine);
+    OcrConfig.engine = engine;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_offlineEnginePrefKey, engine.name);
+    await prefs.setString(_ocrEnginePrefKey, engine.name);
   }
 
   void _openManualEntry([
@@ -519,8 +519,8 @@ class _MainShellState extends State<MainShell> {
         constraints: const BoxConstraints(maxWidth: 520),
         child: Scaffold(
           drawer: AppSettingsDrawer(
-            selectedOfflineEngine: _offlineEngine,
-            onOfflineEngineChanged: _setOfflineEngine,
+            selectedEngine: _ocrEngine,
+            onEngineChanged: _setOcrEngine,
           ),
           body: SafeArea(
             child: IndexedStack(
@@ -611,12 +611,12 @@ class _MainShellState extends State<MainShell> {
 class AppSettingsDrawer extends StatelessWidget {
   const AppSettingsDrawer({
     super.key,
-    required this.selectedOfflineEngine,
-    required this.onOfflineEngineChanged,
+    required this.selectedEngine,
+    required this.onEngineChanged,
   });
 
-  final OfflineOcrEngine selectedOfflineEngine;
-  final ValueChanged<OfflineOcrEngine> onOfflineEngineChanged;
+  final OcrEngine selectedEngine;
+  final ValueChanged<OcrEngine> onEngineChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -658,34 +658,83 @@ class AppSettingsDrawer extends StatelessWidget {
             const Padding(
               padding: EdgeInsets.fromLTRB(20, 18, 20, 6),
               child: Text(
-                'OCR offline',
+                'OCR EN LA NUBE (CLOUD)',
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: 12,
                   fontWeight: FontWeight.w900,
                   color: Colors.black54,
+                  letterSpacing: 1.1,
                 ),
               ),
             ),
-            RadioListTile<OfflineOcrEngine>(
-              value: OfflineOcrEngine.hybrid,
-              groupValue: selectedOfflineEngine,
+            RadioListTile<OcrEngine>(
+              value: OcrEngine.gemini,
+              groupValue: selectedEngine,
               onChanged: (value) {
-                if (value != null) onOfflineEngineChanged(value);
+                if (value != null) onEngineChanged(value);
               },
-              title: const Text('Híbrido YOLO+CNN'),
-              secondary: const Icon(Icons.psychology_rounded),
+              title: const Text('Gemini Vision'),
+              secondary: const Icon(Icons.cloud_rounded),
               activeColor: const Color(0xFF008D84),
             ),
-            RadioListTile<OfflineOcrEngine>(
-              value: OfflineOcrEngine.yolo,
-              groupValue: selectedOfflineEngine,
+            RadioListTile<OcrEngine>(
+              value: OcrEngine.github,
+              groupValue: selectedEngine,
               onChanged: (value) {
-                if (value != null) onOfflineEngineChanged(value);
+                if (value != null) onEngineChanged(value);
               },
-              title: const Text('YOLO'),
-              secondary: const Icon(Icons.center_focus_strong_rounded),
+              title: const Text('GitHub Models'),
+              secondary: const Icon(Icons.code_rounded),
               activeColor: const Color(0xFF008D84),
             ),
+            RadioListTile<OcrEngine>(
+              value: OcrEngine.groq,
+              groupValue: selectedEngine,
+              onChanged: (value) {
+                if (value != null) onEngineChanged(value);
+              },
+              title: const Text('Groq Llama Vision'),
+              secondary: const Icon(Icons.bolt_rounded),
+              activeColor: const Color(0xFF008D84),
+            ),
+
+            // Motores Offline (Solo visibles fuera de Web)
+            if (!kIsWeb) ...[
+              const Divider(height: 1),
+              const Padding(
+                padding: EdgeInsets.fromLTRB(20, 18, 20, 6),
+                child: Text(
+                  'OCR LOCAL (OFFLINE)',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.black54,
+                    letterSpacing: 1.1,
+                  ),
+                ),
+              ),
+              RadioListTile<OcrEngine>(
+                value: OcrEngine.hybrid,
+                groupValue: selectedEngine,
+                onChanged: (value) {
+                  if (value != null) onEngineChanged(value);
+                },
+                title: const Text('Híbrido YOLO+CNN'),
+                secondary: const Icon(Icons.psychology_rounded),
+                activeColor: const Color(0xFF008D84),
+              ),
+              RadioListTile<OcrEngine>(
+                value: OcrEngine.yolo,
+                groupValue: selectedEngine,
+                onChanged: (value) {
+                  if (value != null) onEngineChanged(value);
+                },
+                title: const Text('YOLO'),
+                secondary: const Icon(Icons.center_focus_strong_rounded),
+                activeColor: const Color(0xFF008D84),
+              ),
+            ],
+
           ],
         ),
       ),

@@ -53,10 +53,9 @@ void main() {
     final reader = engine == _BatchOcrEngine.yolo
         ? BloodPressureDigitReader(modelAssetPath: modelAsset)
         : null;
-    GeminiOcrService.forceOfflineOcr = true;
-    OfflineOcrConfig.engine = switch (engine) {
-      _BatchOcrEngine.yolo => OfflineOcrEngine.yolo,
-      _BatchOcrEngine.hybrid => OfflineOcrEngine.hybrid,
+    OcrConfig.engine = switch (engine) {
+      _BatchOcrEngine.yolo => OcrEngine.yolo,
+      _BatchOcrEngine.hybrid => OcrEngine.hybrid,
     };
     final ocrService = engine == _BatchOcrEngine.yolo
         ? null

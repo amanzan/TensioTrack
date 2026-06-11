@@ -33,77 +33,79 @@ class GeminiOcrService implements OcrService {
   /// Timeout máximo para las peticiones a proveedores cloud.
   static const _timeout = Duration(seconds: 60);
 
-  /// FLAG TEMPORAL PARA PRUEBAS
-  /// Si es true, la app utiliza el motor offline seleccionado.
-  /// Si es false, usa Gemini en la nube como primera opción y OCR local como respaldo.
-  static bool forceOfflineOcr = const bool.fromEnvironment('FORCE_OFFLINE_OCR');
-
-  /// FLAG TEMPORAL PARA PRUEBAS
-  /// Si es true, omite Gemini y realiza los intentos cloud solo con Groq.
-  static bool forceGroqOcr = const bool.fromEnvironment('FORCE_GROQ_OCR');
-
-  /// FLAG TEMPORAL PARA PRUEBAS
-  /// Si es true, omite Gemini/Groq y prueba solo GitHub Models.
-  static bool forceGithubOcr = const bool.fromEnvironment('FORCE_GITHUB_OCR');
-
-  static DateTime? _geminiQuotaBlockedUntil;
-
-  final _digitReader = BloodPressureDigitReader();
+  final _hybridDigitReader = BloodPressureDigitReader(confidenceThreshold: 0.30);
+  final _yoloDigitReader = BloodPressureDigitReader(confidenceThreshold: 0.50);
 
   @override
   Future<OcrResult?> recognizePressure(
     String imagePath,
     Uint8List imageBytes,
   ) async {
-    if (forceOfflineOcr) {
-      debugPrint(
-        'TensioTrack: forceOfflineOcr activo. Ejecutando OCR offline...',
-      );
-      return _recognizeWithOfflineCascade(imagePath, imageBytes);
-    }
+    final selectedEngine = OcrConfig.engine;
+    debugPrint('TensioTrack: Motor OCR seleccionado: ${selectedEngine.label}');
 
-    try {
-      debugPrint(
-        forceGithubOcr
-            ? 'TensioTrack: Modo cloud forzado a solo GitHub Models.'
-            : forceGroqOcr
-            ? 'TensioTrack: Modo cloud forzado a solo Groq.'
-            : 'TensioTrack: Modo cloud Gemini -> GitHub Models -> Gemini -> GitHub Models -> Groq -> Groq.',
-      );
-      final cloudResult = await _recognizeWithCloudProvidersWithRetries(
-        imageBytes,
-      );
-      if (cloudResult != null) return cloudResult;
-
-      debugPrint(
-        'TensioTrack: Ningún proveedor cloud devolvió lectura. Usando fallback OCR offline...',
-      );
-      return await _recognizeWithOfflineCascade(imagePath, imageBytes);
-    } on TimeoutException {
-      debugPrint('TensioTrack Cloud TIMEOUT: Conmutando a OCR offline...');
-      return await _recognizeWithOfflineCascade(imagePath, imageBytes);
-    } catch (e) {
-      debugPrint('TensioTrack Cloud ERROR ($e): Conmutando a OCR offline...');
-      return await _recognizeWithOfflineCascade(imagePath, imageBytes);
-    }
+    return switch (selectedEngine) {
+      OcrEngine.hybrid => _recognizeWithSelectedHybrid(imagePath, imageBytes),
+      OcrEngine.yolo => _recognizeWithSelectedYolo(imageBytes),
+      OcrEngine.gemini || OcrEngine.github || OcrEngine.groq =>
+        _recognizeWithCloudProviderAndFallback(selectedEngine, imagePath, imageBytes),
+    };
   }
 
-  Future<OcrResult?> _recognizeWithOfflineCascade(
+  Future<OcrResult?> _recognizeWithCloudProviderAndFallback(
+    OcrEngine engine,
     String imagePath,
     Uint8List imageBytes,
   ) async {
-    debugPrint(
-      'TensioTrack: motor offline seleccionado: '
-      '${OfflineOcrConfig.engine.label}.',
-    );
+    final label = engine.label;
+    Object? lastError;
 
-    return switch (OfflineOcrConfig.engine) {
-      OfflineOcrEngine.hybrid => _recognizeWithSelectedHybrid(
-        imagePath,
-        imageBytes,
-      ),
-      OfflineOcrEngine.yolo => _recognizeWithSelectedYolo(imageBytes),
-    };
+    // Se realizan hasta 2 reintentos (3 intentos en total)
+    const totalAttempts = 3;
+    for (int attempt = 1; attempt <= totalAttempts; attempt++) {
+      try {
+        debugPrint('TensioTrack: Intentando $label (intento $attempt/$totalAttempts)...');
+        final result = await switch (engine) {
+          OcrEngine.gemini => _recognizeWithGemini(imageBytes),
+          OcrEngine.github => _recognizeWithGithub(imageBytes),
+          OcrEngine.groq => _recognizeWithGroq(imageBytes),
+          _ => null,
+        };
+
+        if (result != null) {
+          return result;
+        }
+      } catch (e) {
+        lastError = e;
+        debugPrint('TensioTrack: Intento $attempt/$totalAttempts con $label falló ($e).');
+      }
+
+      if (attempt < totalAttempts) {
+        // Pausa exponencial corta (ej. 700 ms, 1400 ms)
+        await Future<void>.delayed(Duration(milliseconds: 700 * attempt));
+      }
+    }
+
+    // Si fallaron los intentos, fallback al método híbrido YOLO + CNN
+    debugPrint(
+      'TensioTrack: $label falló tras $totalAttempts intentos. '
+      'Último error: $lastError. Conmutando a fallback Híbrido YOLO+CNN...',
+    );
+    final fallbackResult = await _recognizeWithSelectedHybrid(imagePath, imageBytes);
+    if (fallbackResult != null) {
+      // Ajustar el engineName para reflejar que fue un fallback
+      return OcrResult(
+        systolic: fallbackResult.systolic,
+        diastolic: fallbackResult.diastolic,
+        systolicBox: fallbackResult.systolicBox,
+        diastolicBox: fallbackResult.diastolicBox,
+        imageWidth: fallbackResult.imageWidth,
+        imageHeight: fallbackResult.imageHeight,
+        confidence: fallbackResult.confidence,
+        engineName: 'Híbrido YOLO+CNN (Fallback de $label)',
+      );
+    }
+    return null;
   }
 
   Future<OcrResult?> _recognizeWithSelectedHybrid(
@@ -119,6 +121,7 @@ class GeminiOcrService implements OcrService {
     }
   }
 
+
   Future<OcrResult?> _recognizeWithHybrid(
     String imagePath,
     Uint8List imageBytes,
@@ -126,7 +129,7 @@ class GeminiOcrService implements OcrService {
     debugPrint('TensioTrack: Inicializando pipeline híbrido (YOLO + CNN)...');
 
     // 1. Ejecutar YOLO para obtener la localización de las cajas
-    final yoloResult = await _digitReader.readFromImageBytes(imageBytes);
+    final yoloResult = await _hybridDigitReader.readFromImageBytes(imageBytes);
     if (yoloResult == null || yoloResult.detections.isEmpty) {
       debugPrint('TensioTrack Híbrido: YOLO no detectó ningún dígito.');
       return null;
@@ -422,7 +425,7 @@ class GeminiOcrService implements OcrService {
 
   Future<OcrResult?> _recognizeWithYoloDigits(Uint8List imageBytes) async {
     debugPrint('TensioTrack YOLOv8 TFLite: ejecutando detección de dígitos...');
-    final result = await _digitReader.readFromImageBytes(imageBytes);
+    final result = await _yoloDigitReader.readFromImageBytes(imageBytes);
     if (result == null) {
       debugPrint('TensioTrack YOLOv8 TFLite: sin lectura válida.');
       return null;
@@ -466,111 +469,6 @@ class GeminiOcrService implements OcrService {
     return Rect.fromLTRB(left, top, right, bottom);
   }
 
-  Future<OcrResult?> _recognizeWithCloudProvidersWithRetries(
-    Uint8List imageBytes,
-  ) async {
-    Object? lastError;
-    final providerPlan = _cloudProviderPlan();
-
-    for (var index = 0; index < providerPlan.length; index++) {
-      final attempt = index + 1;
-      final provider = providerPlan[index];
-
-      try {
-        debugPrint(
-          'TensioTrack ${provider.label}: intento $attempt/${providerPlan.length}...',
-        );
-        final result = switch (provider) {
-          _CloudOcrProvider.gemini => await _recognizeWithGemini(imageBytes),
-          _CloudOcrProvider.github => await _recognizeWithGithub(imageBytes),
-          _CloudOcrProvider.groq => await _recognizeWithGroq(imageBytes),
-        };
-        if (result != null) return result;
-      } catch (e) {
-        lastError = e;
-        if (provider == _CloudOcrProvider.gemini && _isGeminiQuotaError(e)) {
-          _rememberGeminiQuotaCooldown(e);
-        }
-        debugPrint(
-          'TensioTrack ${provider.label}: intento $attempt/${providerPlan.length} falló ($e).',
-        );
-      }
-
-      if (attempt < providerPlan.length) {
-        await Future<void>.delayed(Duration(milliseconds: 700 * attempt));
-      }
-    }
-
-    if (lastError != null) throw lastError;
-    return null;
-  }
-
-  List<_CloudOcrProvider> _cloudProviderPlan() {
-    if (forceGithubOcr) {
-      return const [_CloudOcrProvider.github, _CloudOcrProvider.github];
-    }
-    if (forceGroqOcr) {
-      return const [_CloudOcrProvider.groq, _CloudOcrProvider.groq];
-    }
-
-    if (_isGeminiQuotaBlocked()) {
-      debugPrint(
-        'TensioTrack Gemini: cuota agotada temporalmente. Usando GitHub Models -> GitHub Models -> Groq -> Groq.',
-      );
-      return const [
-        _CloudOcrProvider.github,
-        _CloudOcrProvider.github,
-        _CloudOcrProvider.groq,
-        _CloudOcrProvider.groq,
-      ];
-    }
-
-    return const [
-      _CloudOcrProvider.gemini,
-      _CloudOcrProvider.github,
-      _CloudOcrProvider.gemini,
-      _CloudOcrProvider.github,
-      _CloudOcrProvider.groq,
-      _CloudOcrProvider.groq,
-    ];
-  }
-
-  bool _isGeminiQuotaBlocked() {
-    final blockedUntil = _geminiQuotaBlockedUntil;
-    if (blockedUntil == null) return false;
-
-    if (DateTime.now().isAfter(blockedUntil)) {
-      _geminiQuotaBlockedUntil = null;
-      return false;
-    }
-
-    return true;
-  }
-
-  bool _isGeminiQuotaError(Object error) {
-    final errorText = error.toString().toLowerCase();
-    return errorText.contains('quota exceeded') ||
-        errorText.contains('resource_exhausted') ||
-        errorText.contains('current quota');
-  }
-
-  void _rememberGeminiQuotaCooldown(Object error) {
-    final errorText = error.toString();
-    final retryMatch = RegExp(
-      r'retry in ([0-9]+(?:\.[0-9]+)?)s',
-      caseSensitive: false,
-    ).firstMatch(errorText);
-    final retrySeconds = retryMatch == null
-        ? 60.0
-        : double.tryParse(retryMatch.group(1)!) ?? 60.0;
-
-    _geminiQuotaBlockedUntil = DateTime.now().add(
-      Duration(milliseconds: (retrySeconds * 1000).ceil()),
-    );
-    debugPrint(
-      'TensioTrack Gemini: cuota agotada. Se evitará Gemini durante ${retrySeconds.toStringAsFixed(1)}s.',
-    );
-  }
 
 
 
@@ -918,15 +816,6 @@ Do NOT include any other text, explanation, units, or formatting.''';
   }
 }
 
-enum _CloudOcrProvider {
-  gemini('Gemini'),
-  github('GitHub Models'),
-  groq('Groq');
-
-  const _CloudOcrProvider(this.label);
-
-  final String label;
-}
 
 class _PressureValues {
   const _PressureValues({required this.systolic, required this.diastolic});
