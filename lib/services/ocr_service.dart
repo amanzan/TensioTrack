@@ -23,7 +23,7 @@ enum OcrEngine {
 }
 
 class OcrConfig {
-  static OcrEngine engine = OcrEngine.gemini;
+  static OcrEngine engine = OcrEngine.hybrid;
 }
 
 /// Resultado del análisis OCR de una toma de presión.

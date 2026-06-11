@@ -429,12 +429,15 @@ class _MainShellState extends State<MainShell> {
 
   int _index = 0;
   bool _autoStartCamera = false;
-  OcrEngine _ocrEngine = OcrConfig.engine;
+  OcrEngine _ocrEngine = kIsWeb ? OcrEngine.gemini : OcrConfig.engine;
   StreamSubscription<String?>? _notificationSub;
 
   @override
   void initState() {
     super.initState();
+    if (kIsWeb && (OcrConfig.engine == OcrEngine.hybrid || OcrConfig.engine == OcrEngine.yolo)) {
+      OcrConfig.engine = OcrEngine.gemini;
+    }
     _loadOcrEngine();
 
     // 1. Escuchar clicks de notificación si la app está en segundo plano o activa
@@ -471,10 +474,13 @@ class _MainShellState extends State<MainShell> {
   Future<void> _loadOcrEngine() async {
     final prefs = await SharedPreferences.getInstance();
     final saved = prefs.getString(_ocrEnginePrefKey);
-    final engine = OcrEngine.values.firstWhere(
+    var engine = OcrEngine.values.firstWhere(
       (value) => value.name == saved,
       orElse: () => OcrConfig.engine,
     );
+    if (kIsWeb && (engine == OcrEngine.hybrid || engine == OcrEngine.yolo)) {
+      engine = OcrEngine.gemini;
+    }
     OcrConfig.engine = engine;
     if (mounted) {
       setState(() => _ocrEngine = engine);
