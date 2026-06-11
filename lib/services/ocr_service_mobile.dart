@@ -9,6 +9,7 @@ import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:http/http.dart' as http;
 
+import 'blood_pressure_digit_reader.dart';
 import 'ocr_service.dart';
 
 /// Retorna la instancia de servicio OCR móvil.
@@ -48,6 +49,8 @@ class GeminiOcrService implements OcrService {
 
   static DateTime? _geminiQuotaBlockedUntil;
 
+  final _digitReader = BloodPressureDigitReader();
+
   @override
   Future<OcrResult?> recognizePressure(
     String imagePath,
@@ -55,22 +58,9 @@ class GeminiOcrService implements OcrService {
   ) async {
     if (forceOfflineOcr) {
       debugPrint(
-        'TensioTrack: forceOfflineOcr activo. Ejecutando OCR LCD offline...',
+        'TensioTrack: forceOfflineOcr activo. Ejecutando OCR offline...',
       );
-      try {
-        final sevenSegmentResult = await _recognizeWithSevenSegment(imageBytes);
-        if (sevenSegmentResult != null) return sevenSegmentResult;
-      } catch (e) {
-        debugPrint('TensioTrack: Falló el OCR LCD offline ($e).');
-      }
-
-      try {
-        debugPrint('TensioTrack: Reintentando offline con ML Kit local...');
-        return await _recognizeWithMlKit(imagePath, imageBytes);
-      } catch (e) {
-        debugPrint('TensioTrack: Falló también ML Kit en modo offline ($e).');
-        return null;
-      }
+      return _recognizeWithOfflineCascade(imagePath, imageBytes);
     }
 
     try {
@@ -87,28 +77,90 @@ class GeminiOcrService implements OcrService {
       if (cloudResult != null) return cloudResult;
 
       debugPrint(
-        'TensioTrack: Ningún proveedor cloud devolvió lectura. Usando fallback OCR LCD offline...',
+        'TensioTrack: Ningún proveedor cloud devolvió lectura. Usando fallback OCR offline...',
       );
+      return await _recognizeWithOfflineCascade(imagePath, imageBytes);
+    } on TimeoutException {
+      debugPrint('TensioTrack Cloud TIMEOUT: Conmutando a OCR offline...');
+      return await _recognizeWithOfflineCascade(imagePath, imageBytes);
+    } catch (e) {
+      debugPrint('TensioTrack Cloud ERROR ($e): Conmutando a OCR offline...');
+      return await _recognizeWithOfflineCascade(imagePath, imageBytes);
+    }
+  }
+
+  Future<OcrResult?> _recognizeWithOfflineCascade(
+    String imagePath,
+    Uint8List imageBytes,
+  ) async {
+    try {
+      final yoloResult = await _recognizeWithYoloDigits(imageBytes);
+      if (yoloResult != null) return yoloResult;
+    } catch (e) {
+      debugPrint('TensioTrack: Falló YOLOv8 TFLite offline ($e).');
+    }
+
+    try {
+      debugPrint('TensioTrack: Reintentando offline con OCR LCD heurístico...');
       final sevenSegmentResult = await _recognizeWithSevenSegment(imageBytes);
       if (sevenSegmentResult != null) return sevenSegmentResult;
-
-      debugPrint(
-        'TensioTrack: OCR LCD devolvió nulo. Usando fallback offline con ML Kit...',
-      );
-      return await _recognizeWithMlKit(imagePath, imageBytes);
-    } on TimeoutException {
-      debugPrint('TensioTrack Cloud TIMEOUT: Conmutando a OCR LCD offline...');
-      final sevenSegmentResult = await _recognizeWithSevenSegment(imageBytes);
-      return sevenSegmentResult ??
-          await _recognizeWithMlKit(imagePath, imageBytes);
     } catch (e) {
-      debugPrint(
-        'TensioTrack Cloud ERROR ($e): Conmutando a OCR LCD offline...',
-      );
-      final sevenSegmentResult = await _recognizeWithSevenSegment(imageBytes);
-      return sevenSegmentResult ??
-          await _recognizeWithMlKit(imagePath, imageBytes);
+      debugPrint('TensioTrack: Falló el OCR LCD offline ($e).');
     }
+
+    try {
+      debugPrint('TensioTrack: Reintentando offline con ML Kit local...');
+      return await _recognizeWithMlKit(imagePath, imageBytes);
+    } catch (e) {
+      debugPrint('TensioTrack: Falló también ML Kit en modo offline ($e).');
+      return null;
+    }
+  }
+
+  Future<OcrResult?> _recognizeWithYoloDigits(Uint8List imageBytes) async {
+    debugPrint('TensioTrack YOLOv8 TFLite: ejecutando detección de dígitos...');
+    final result = await _digitReader.readFromImageBytes(imageBytes);
+    if (result == null) {
+      debugPrint('TensioTrack YOLOv8 TFLite: sin lectura válida.');
+      return null;
+    }
+
+    debugPrint(
+      'TensioTrack YOLOv8 TFLite RESULTADO: '
+      'SYS=${result.systolic}, DIA=${result.diastolic}, '
+      'filas=${result.rowValues}, '
+      'detecciones=${result.detections.length}, '
+      'conf=${result.confidence.toStringAsFixed(2)}',
+    );
+
+    return OcrResult(
+      systolic: result.systolic,
+      diastolic: result.diastolic,
+      systolicBox: _rowBoundingBox(result.rows[0]),
+      diastolicBox: _rowBoundingBox(result.rows[1]),
+      imageWidth: result.imageWidth.toDouble(),
+      imageHeight: result.imageHeight.toDouble(),
+      confidence: result.confidence,
+      engineName: 'YOLOv8 TFLite dígitos (Offline)',
+    );
+  }
+
+  Rect? _rowBoundingBox(List<DigitDetection> row) {
+    if (row.isEmpty) return null;
+
+    var left = row.first.x1;
+    var top = row.first.y1;
+    var right = row.first.x2;
+    var bottom = row.first.y2;
+
+    for (final detection in row.skip(1)) {
+      left = math.min(left, detection.x1);
+      top = math.min(top, detection.y1);
+      right = math.max(right, detection.x2);
+      bottom = math.max(bottom, detection.y2);
+    }
+
+    return Rect.fromLTRB(left, top, right, bottom);
   }
 
   Future<OcrResult?> _recognizeWithCloudProvidersWithRetries(
