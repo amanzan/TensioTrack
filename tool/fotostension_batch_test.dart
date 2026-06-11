@@ -5,6 +5,8 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tensiotrack/services/blood_pressure_digit_reader.dart';
+import 'package:tensiotrack/services/ocr_service.dart';
+import 'package:tensiotrack/services/ocr_service_mobile.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -19,6 +21,7 @@ void main() {
       'MODEL',
       defaultValue: 'best_float32.tflite',
     );
+    const engineName = String.fromEnvironment('ENGINE', defaultValue: 'yolo');
     const recursive = bool.fromEnvironment('RECURSIVE');
     const verbose = bool.fromEnvironment('VERBOSE');
 
@@ -46,11 +49,20 @@ void main() {
               : <File>[]
           ..sort((a, b) => a.path.compareTo(b.path));
 
-    final reader = BloodPressureDigitReader(modelAssetPath: modelAsset);
+    final engine = _batchEngineFromName(engineName);
+    final reader = engine == _BatchOcrEngine.yolo
+        ? BloodPressureDigitReader(modelAssetPath: modelAsset)
+        : null;
+    GeminiOcrService.forceOfflineOcr = true;
+    OfflineOcrConfig.engine = OfflineOcrEngine.mlKit;
+    final mlKitService = engine == _BatchOcrEngine.mlKit
+        ? GeminiOcrService()
+        : null;
     var ok = 0;
     var failed = 0;
 
     print('DIR=$dirPath');
+    print('ENGINE=${engine.name}');
     print('MODEL=$modelAsset');
     print('file,expected_sys,expected_dia,detected_sys,detected_dia,status');
 
@@ -63,9 +75,21 @@ void main() {
       }
 
       final (expectedSys, expectedDia) = expected;
-      final result = await reader.readFromImagePath(file.path);
-      final detectedSys = result?.systolic;
-      final detectedDia = result?.diastolic;
+      int? detectedSys;
+      int? detectedDia;
+      switch (engine) {
+        case _BatchOcrEngine.yolo:
+          final result = await reader!.readFromImagePath(file.path);
+          detectedSys = result?.systolic;
+          detectedDia = result?.diastolic;
+        case _BatchOcrEngine.mlKit:
+          final result = await mlKitService!.recognizePressure(
+            file.path,
+            await file.readAsBytes(),
+          );
+          detectedSys = result?.systolic;
+          detectedDia = result?.diastolic;
+      }
       final status = detectedSys == expectedSys && detectedDia == expectedDia
           ? 'OK'
           : 'FAIL';
@@ -82,9 +106,18 @@ void main() {
       );
     }
 
-    await reader.dispose();
+    await reader?.dispose();
     print('SUMMARY,total=${files.length},ok=$ok,failed=$failed');
   }, timeout: const Timeout(Duration(minutes: 5)));
+}
+
+enum _BatchOcrEngine { yolo, mlKit }
+
+_BatchOcrEngine _batchEngineFromName(String name) {
+  return switch (name.toLowerCase().trim()) {
+    'legacy' || 'mlkit' || 'ml_kit' || 'ml-kit' => _BatchOcrEngine.mlKit,
+    _ => _BatchOcrEngine.yolo,
+  };
 }
 
 (int sys, int dia)? _expectedReadingFromFile(File file) {

@@ -420,6 +420,7 @@ class MainShell extends StatefulWidget {
 }
 
 class _MainShellState extends State<MainShell> {
+  static const _offlineEnginePrefKey = 'offline_ocr_engine';
   static const int _homeTab = 0;
   static const int _captureTab = 1;
   static const int _historyTab = 2;
@@ -428,11 +429,13 @@ class _MainShellState extends State<MainShell> {
 
   int _index = 0;
   bool _autoStartCamera = false;
+  OfflineOcrEngine _offlineEngine = OfflineOcrConfig.engine;
   StreamSubscription<String?>? _notificationSub;
 
   @override
   void initState() {
     super.initState();
+    _loadOfflineEngine();
 
     // 1. Escuchar clicks de notificación si la app está en segundo plano o activa
     _notificationSub = NotificationService().onNotificationClick.listen((
@@ -465,6 +468,26 @@ class _MainShellState extends State<MainShell> {
     });
   }
 
+  Future<void> _loadOfflineEngine() async {
+    final prefs = await SharedPreferences.getInstance();
+    final saved = prefs.getString(_offlineEnginePrefKey);
+    final engine = OfflineOcrEngine.values.firstWhere(
+      (value) => value.name == saved,
+      orElse: () => OfflineOcrConfig.engine,
+    );
+    OfflineOcrConfig.engine = engine;
+    if (mounted) {
+      setState(() => _offlineEngine = engine);
+    }
+  }
+
+  Future<void> _setOfflineEngine(OfflineOcrEngine engine) async {
+    setState(() => _offlineEngine = engine);
+    OfflineOcrConfig.engine = engine;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_offlineEnginePrefKey, engine.name);
+  }
+
   void _openManualEntry([
     EntryMethod method = EntryMethod.manual,
     int? systolic,
@@ -495,6 +518,10 @@ class _MainShellState extends State<MainShell> {
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 520),
         child: Scaffold(
+          drawer: AppSettingsDrawer(
+            selectedOfflineEngine: _offlineEngine,
+            onOfflineEngineChanged: _setOfflineEngine,
+          ),
           body: SafeArea(
             child: IndexedStack(
               index: _index,
@@ -578,6 +605,91 @@ class _MainShellState extends State<MainShell> {
 
   void _setTab(int index) {
     setState(() => _index = index);
+  }
+}
+
+class AppSettingsDrawer extends StatelessWidget {
+  const AppSettingsDrawer({
+    super.key,
+    required this.selectedOfflineEngine,
+    required this.onOfflineEngineChanged,
+  });
+
+  final OfflineOcrEngine selectedOfflineEngine;
+  final ValueChanged<OfflineOcrEngine> onOfflineEngineChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Drawer(
+      child: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 14),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFE6F4F3),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.tune_rounded,
+                      color: Color(0xFF008D84),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Text(
+                      'Ajustes',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF202124),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 18, 20, 6),
+              child: Text(
+                'OCR offline',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w900,
+                  color: Colors.black54,
+                ),
+              ),
+            ),
+            RadioListTile<OfflineOcrEngine>(
+              value: OfflineOcrEngine.yolo,
+              groupValue: selectedOfflineEngine,
+              onChanged: (value) {
+                if (value != null) onOfflineEngineChanged(value);
+              },
+              title: const Text('YOLO'),
+              secondary: const Icon(Icons.center_focus_strong_rounded),
+              activeColor: const Color(0xFF008D84),
+            ),
+            RadioListTile<OfflineOcrEngine>(
+              value: OfflineOcrEngine.mlKit,
+              groupValue: selectedOfflineEngine,
+              onChanged: (value) {
+                if (value != null) onOfflineEngineChanged(value);
+              },
+              title: const Text('ML Kit'),
+              secondary: const Icon(Icons.text_fields_rounded),
+              activeColor: const Color(0xFF008D84),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -2570,6 +2682,12 @@ class ScreenFrame extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
+              IconButton(
+                onPressed: () => Scaffold.maybeOf(context)?.openDrawer(),
+                icon: const Icon(Icons.menu_rounded),
+                tooltip: 'Abrir ajustes',
+              ),
+              const SizedBox(width: 8),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
