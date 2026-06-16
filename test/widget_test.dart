@@ -1,3 +1,4 @@
+import 'package:encrypt_shared_preferences/provider.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart';
@@ -8,6 +9,7 @@ void main() {
   testWidgets('TensioTrack muestra la pantalla principal', (tester) async {
     TestWidgetsFlutterBinding.ensureInitialized();
     SharedPreferences.setMockInitialValues({});
+    await EncryptedSharedPreferences.initialize('TensioTrackTFG24');
     await initializeDateFormatting('es_ES');
 
     final store = TensioStore();
@@ -20,7 +22,10 @@ void main() {
     expect(find.textContaining('Alberto'), findsWidgets);
 
     final now = DateTime.now();
-    final expectedDate = DateFormat("d MMM, HH:mm", "es_ES").format(DateTime(now.year, now.month, now.day, 8, 30));
+    final expectedDate = DateFormat(
+      "d MMM, HH:mm",
+      "es_ES",
+    ).format(DateTime(now.year, now.month, now.day, 8, 30));
     expect(find.text('Última medición · $expectedDate'), findsOneWidget);
   });
 }

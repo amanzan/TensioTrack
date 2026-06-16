@@ -4,6 +4,7 @@ import 'dart:math';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
+import 'package:encrypt_shared_preferences/provider.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
@@ -17,10 +18,36 @@ import 'services/ocr_service.dart';
 import 'services/notification_service.dart';
 
 const _uuid = Uuid();
+const _defaultStorageEncryptionKey = 'TensioTrackTFG24';
+const _storageEncryptionKey = String.fromEnvironment(
+  'TENSIOTRACK_STORAGE_KEY',
+  defaultValue: _defaultStorageEncryptionKey,
+);
+
+String get _effectiveStorageEncryptionKey => _storageEncryptionKey.length == 16
+    ? _storageEncryptionKey
+    : _defaultStorageEncryptionKey;
+
+EncryptedSharedPreferences get _securePrefs =>
+    EncryptedSharedPreferences.getInstance();
+
+Future<String?> _readSecureStringWithLegacyMigration(String key) async {
+  final secureValue = _securePrefs.getString(key);
+  if (secureValue != null) return secureValue;
+
+  final legacyPrefs = await SharedPreferences.getInstance();
+  final legacyValue = legacyPrefs.getString(key);
+  if (legacyValue == null) return null;
+
+  await _securePrefs.setString(key, legacyValue);
+  await legacyPrefs.remove(key);
+  return legacyValue;
+}
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('es_ES');
+  await EncryptedSharedPreferences.initialize(_effectiveStorageEncryptionKey);
 
   // Inicializar notificaciones locales offline
   final notificationService = NotificationService();
@@ -201,9 +228,12 @@ class TensioStore extends ChangeNotifier {
   List<AppReminder> get reminders => List.unmodifiable(_reminders);
 
   Future<void> load() async {
-    final prefs = await SharedPreferences.getInstance();
-    final savedMeasurements = prefs.getString(_measurementsKey);
-    final savedReminders = prefs.getString(_remindersKey);
+    final savedMeasurements = await _readSecureStringWithLegacyMigration(
+      _measurementsKey,
+    );
+    final savedReminders = await _readSecureStringWithLegacyMigration(
+      _remindersKey,
+    );
 
     if (savedMeasurements == null) {
       _measurements.addAll(_demoMeasurements());
@@ -318,8 +348,7 @@ class TensioStore extends ChangeNotifier {
   }
 
   Future<void> _saveMeasurements() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(
+    await _securePrefs.setString(
       _measurementsKey,
       jsonEncode(
         _measurements.map((measurement) => measurement.toJson()).toList(),
@@ -328,8 +357,7 @@ class TensioStore extends ChangeNotifier {
   }
 
   Future<void> _saveReminders() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(
+    await _securePrefs.setString(
       _remindersKey,
       jsonEncode(_reminders.map((reminder) => reminder.toJson()).toList()),
     );
@@ -435,7 +463,9 @@ class _MainShellState extends State<MainShell> {
   @override
   void initState() {
     super.initState();
-    if (kIsWeb && (OcrConfig.engine == OcrEngine.hybrid || OcrConfig.engine == OcrEngine.yolo)) {
+    if (kIsWeb &&
+        (OcrConfig.engine == OcrEngine.hybrid ||
+            OcrConfig.engine == OcrEngine.yolo)) {
       OcrConfig.engine = OcrEngine.gemini;
     }
     _loadOcrEngine();
@@ -472,8 +502,7 @@ class _MainShellState extends State<MainShell> {
   }
 
   Future<void> _loadOcrEngine() async {
-    final prefs = await SharedPreferences.getInstance();
-    final saved = prefs.getString(_ocrEnginePrefKey);
+    final saved = await _readSecureStringWithLegacyMigration(_ocrEnginePrefKey);
     var engine = OcrEngine.values.firstWhere(
       (value) => value.name == saved,
       orElse: () => OcrConfig.engine,
@@ -490,8 +519,7 @@ class _MainShellState extends State<MainShell> {
   Future<void> _setOcrEngine(OcrEngine engine) async {
     setState(() => _ocrEngine = engine);
     OcrConfig.engine = engine;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_ocrEnginePrefKey, engine.name);
+    await _securePrefs.setString(_ocrEnginePrefKey, engine.name);
   }
 
   void _openManualEntry([
@@ -740,7 +768,6 @@ class AppSettingsDrawer extends StatelessWidget {
                 activeColor: const Color(0xFF008D84),
               ),
             ],
-
           ],
         ),
       ),
