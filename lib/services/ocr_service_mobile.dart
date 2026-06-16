@@ -30,10 +30,12 @@ class GeminiOcrService implements OcrService {
     defaultValue: 'openai/gpt-4o-mini',
   );
 
-  /// Timeout máximo para las peticiones a proveedores cloud.
-  static const _timeout = Duration(seconds: 60);
+  /// Timeout máximo para cada petición a proveedores cloud.
+  static const _timeout = Duration(seconds: 10);
 
-  final _hybridDigitReader = BloodPressureDigitReader(confidenceThreshold: 0.30);
+  final _hybridDigitReader = BloodPressureDigitReader(
+    confidenceThreshold: 0.30,
+  );
   final _yoloDigitReader = BloodPressureDigitReader(confidenceThreshold: 0.50);
 
   @override
@@ -47,8 +49,13 @@ class GeminiOcrService implements OcrService {
     return switch (selectedEngine) {
       OcrEngine.hybrid => _recognizeWithSelectedHybrid(imagePath, imageBytes),
       OcrEngine.yolo => _recognizeWithSelectedYolo(imageBytes),
-      OcrEngine.gemini || OcrEngine.github || OcrEngine.groq =>
-        _recognizeWithCloudProviderAndFallback(selectedEngine, imagePath, imageBytes),
+      OcrEngine.gemini ||
+      OcrEngine.github ||
+      OcrEngine.groq => _recognizeWithCloudProviderAndFallback(
+        selectedEngine,
+        imagePath,
+        imageBytes,
+      ),
     };
   }
 
@@ -60,11 +67,12 @@ class GeminiOcrService implements OcrService {
     final label = engine.label;
     Object? lastError;
 
-    // Se realizan hasta 2 reintentos (3 intentos en total)
-    const totalAttempts = 3;
+    const totalAttempts = 2;
     for (int attempt = 1; attempt <= totalAttempts; attempt++) {
       try {
-        debugPrint('TensioTrack: Intentando $label (intento $attempt/$totalAttempts)...');
+        debugPrint(
+          'TensioTrack: Intentando $label (intento $attempt/$totalAttempts)...',
+        );
         final result = await switch (engine) {
           OcrEngine.gemini => _recognizeWithGemini(imageBytes),
           OcrEngine.github => _recognizeWithGithub(imageBytes),
@@ -77,7 +85,9 @@ class GeminiOcrService implements OcrService {
         }
       } catch (e) {
         lastError = e;
-        debugPrint('TensioTrack: Intento $attempt/$totalAttempts con $label falló ($e).');
+        debugPrint(
+          'TensioTrack: Intento $attempt/$totalAttempts con $label falló ($e).',
+        );
       }
 
       if (attempt < totalAttempts) {
@@ -91,7 +101,10 @@ class GeminiOcrService implements OcrService {
       'TensioTrack: $label falló tras $totalAttempts intentos. '
       'Último error: $lastError. Conmutando a fallback Híbrido YOLO+CNN...',
     );
-    final fallbackResult = await _recognizeWithSelectedHybrid(imagePath, imageBytes);
+    final fallbackResult = await _recognizeWithSelectedHybrid(
+      imagePath,
+      imageBytes,
+    );
     if (fallbackResult != null) {
       // Ajustar el engineName para reflejar que fue un fallback
       return OcrResult(
@@ -121,7 +134,6 @@ class GeminiOcrService implements OcrService {
     }
   }
 
-
   Future<OcrResult?> _recognizeWithHybrid(
     String imagePath,
     Uint8List imageBytes,
@@ -144,12 +156,16 @@ class GeminiOcrService implements OcrService {
       final frame = await codec.getNextFrame();
       originalImage = frame.image;
     } catch (e) {
-      debugPrint('TensioTrack Híbrido ERROR: No se pudo decodificar la imagen: $e');
+      debugPrint(
+        'TensioTrack Híbrido ERROR: No se pudo decodificar la imagen: $e',
+      );
       return null;
     }
 
     // 3. Inicializar intérprete de la CNN
-    final cnnInterpreter = await Interpreter.fromAsset('digit_classifier.tflite');
+    final cnnInterpreter = await Interpreter.fromAsset(
+      'digit_classifier.tflite',
+    );
 
     // 4. Clasificar cada dígito con la CNN
     final updatedDetections = <DigitDetection>[];
@@ -159,36 +175,38 @@ class GeminiOcrService implements OcrService {
         final dh = det.y2 - det.y1;
         final padX = dh * 0.07;
         final padY = dh * 0.12;
-        
+
         final x1 = (det.x1 - padX).clamp(0.0, imageWidth);
         final y1 = (det.y1 - padY).clamp(0.0, imageHeight);
         final x2 = (det.x2 + padX).clamp(0.0, imageWidth);
         final y2 = (det.y2 + padY).clamp(0.0, imageHeight);
-        
+
         final cropRect = Rect.fromLTRB(x1, y1, x2, y2);
-        
+
         // Binarizar en resolución original y luego redimensionar a 28x28
         final binBytes = await _preprocessDigitForCnn(originalImage, cropRect);
         if (binBytes == null) continue;
-        
+
         // Preparar entrada [1, 28, 28, 1]
         final input = Float32List(1 * 28 * 28 * 1);
         for (int i = 0; i < 28 * 28; i++) {
           final r = binBytes[i * 4];
           input[i] = (255 - r) / 255.0; // Invertir: fondo 0, texto 1
         }
-        
+
         final output = List.generate(
           1,
           (_) => List<double>.filled(10, 0.0, growable: false),
           growable: false,
         );
-        
+
         cnnInterpreter.run(input.buffer, output);
-        
+
         // Ensamble probabilístico: Combinar la predicción de la CNN con la de YOLO
         // Le damos un peso al prior de YOLO y el restante a la CNN especializada.
-        final double yoloWeight = double.tryParse(const String.fromEnvironment('YOLO_WEIGHT')) ?? 0.50;
+        final double yoloWeight =
+            double.tryParse(const String.fromEnvironment('YOLO_WEIGHT')) ??
+            0.50;
         final combinedScores = List<double>.generate(10, (c) {
           final cnnProb = output[0][c];
           final yoloPrior = (c == det.digit) ? det.confidence : 0.0;
@@ -203,7 +221,7 @@ class GeminiOcrService implements OcrService {
             predDigit = c;
           }
         }
-        
+
         updatedDetections.add(
           DigitDetection(
             digit: predDigit,
@@ -226,7 +244,9 @@ class GeminiOcrService implements OcrService {
     // 5. Agrupar en filas usando la lógica de YOLO
     final rows = _groupRows(updatedDetections);
     if (rows.length < 2) {
-      debugPrint('TensioTrack Híbrido: Detecciones insuficientes para SYS/DIA (filas=${rows.length}).');
+      debugPrint(
+        'TensioTrack Híbrido: Detecciones insuficientes para SYS/DIA (filas=${rows.length}).',
+      );
       return null;
     }
 
@@ -250,7 +270,9 @@ class GeminiOcrService implements OcrService {
         firstTwoRows.map((d) => d.confidence).reduce((a, b) => a + b) /
         firstTwoRows.length;
 
-    debugPrint('TensioTrack Híbrido: Extraído SYS=$sysVal, DIA=$diaVal (conf=${confidence.toStringAsFixed(2)})');
+    debugPrint(
+      'TensioTrack Híbrido: Extraído SYS=$sysVal, DIA=$diaVal (conf=${confidence.toStringAsFixed(2)})',
+    );
 
     return OcrResult(
       systolic: sysVal,
@@ -264,10 +286,12 @@ class GeminiOcrService implements OcrService {
     );
   }
 
-
   /// Realiza binarización adaptativa local (Bradley-Roth) sobre la resolución original
   /// y luego redimensiona a 28x28, para alimentar el clasificador CNN.
-  Future<Uint8List?> _preprocessDigitForCnn(Image originalImage, Rect cropRect) async {
+  Future<Uint8List?> _preprocessDigitForCnn(
+    Image originalImage,
+    Rect cropRect,
+  ) async {
     final double width = cropRect.width;
     final double height = cropRect.height;
     if (width <= 0 || height <= 0) return null;
@@ -369,7 +393,9 @@ class GeminiOcrService implements OcrService {
     final pictureResize = recorderResize.endRecording();
     final resizedImage = await pictureResize.toImage(28, 28);
 
-    final resizedByteData = await resizedImage.toByteData(format: ImageByteFormat.rawRgba);
+    final resizedByteData = await resizedImage.toByteData(
+      format: ImageByteFormat.rawRgba,
+    );
     if (resizedByteData == null) return null;
     return resizedByteData.buffer.asUint8List();
   }
@@ -411,8 +437,6 @@ class GeminiOcrService implements OcrService {
     return row.map((d) => d.cy).reduce((a, b) => a + b) / row.length;
   }
 
-
-
   Future<OcrResult?> _recognizeWithSelectedYolo(Uint8List imageBytes) async {
     try {
       return await _recognizeWithYoloDigits(imageBytes);
@@ -421,7 +445,6 @@ class GeminiOcrService implements OcrService {
       return null;
     }
   }
-
 
   Future<OcrResult?> _recognizeWithYoloDigits(Uint8List imageBytes) async {
     debugPrint('TensioTrack YOLOv8 TFLite: ejecutando detección de dígitos...');
@@ -468,10 +491,6 @@ class GeminiOcrService implements OcrService {
 
     return Rect.fromLTRB(left, top, right, bottom);
   }
-
-
-
-
 
   /// OCR en la nube usando Gemini Vision API
   Future<OcrResult?> _recognizeWithGemini(Uint8List imageBytes) async {
@@ -815,7 +834,6 @@ Do NOT include any other text, explanation, units, or formatting.''';
     return 'image/jpeg';
   }
 }
-
 
 class _PressureValues {
   const _PressureValues({required this.systolic, required this.diastolic});

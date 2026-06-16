@@ -1190,8 +1190,10 @@ class _CaptureScreenState extends State<CaptureScreen> {
             errorStr.contains('invalid key')) {
           userFriendlyMsg =
               'La clave API de Gemini, GitHub Models o Groq no es válida o está mal configurada. Revisa tus variables de entorno.';
-        } else if (errorStr.contains('TimeoutException') ||
-            errorStr.contains('SocketException') ||
+        } else if (errorStr.contains('TimeoutException')) {
+          userFriendlyMsg =
+              'El motor de reconocimiento en la nube no ha respondido en 10 segundos. Prueba de nuevo o selecciona otro motor OCR.';
+        } else if (errorStr.contains('SocketException') ||
             errorStr.contains('Network') ||
             errorStr.contains('Failed host lookup')) {
           userFriendlyMsg =

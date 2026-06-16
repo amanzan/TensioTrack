@@ -22,7 +22,7 @@ class GeminiWebOcrService implements OcrService {
     'GITHUB_MODELS_MODEL',
     defaultValue: 'openai/gpt-4o-mini',
   );
-  static const _timeout = Duration(seconds: 60);
+  static const _timeout = Duration(seconds: 10);
 
   @override
   Future<OcrResult?> recognizePressure(
@@ -30,18 +30,23 @@ class GeminiWebOcrService implements OcrService {
     Uint8List imageBytes,
   ) async {
     var selectedEngine = OcrConfig.engine;
-    if (selectedEngine == OcrEngine.hybrid || selectedEngine == OcrEngine.yolo) {
-      debugPrint('TensioTrack Web: Motor local/offline no soportado en Web. Usando Gemini Vision.');
+    if (selectedEngine == OcrEngine.hybrid ||
+        selectedEngine == OcrEngine.yolo) {
+      debugPrint(
+        'TensioTrack Web: Motor local/offline no soportado en Web. Usando Gemini Vision.',
+      );
       selectedEngine = OcrEngine.gemini;
     }
 
     final label = selectedEngine.label;
     Object? lastError;
-    const totalAttempts = 3;
+    const totalAttempts = 2;
 
     for (int attempt = 1; attempt <= totalAttempts; attempt++) {
       try {
-        debugPrint('TensioTrack Web: Intentando $label (intento $attempt/$totalAttempts)...');
+        debugPrint(
+          'TensioTrack Web: Intentando $label (intento $attempt/$totalAttempts)...',
+        );
         final result = await switch (selectedEngine) {
           OcrEngine.gemini => _recognizeWithGemini(imageBytes),
           OcrEngine.github => _recognizeWithGithub(imageBytes),
@@ -53,7 +58,9 @@ class GeminiWebOcrService implements OcrService {
         }
       } catch (e) {
         lastError = e;
-        debugPrint('TensioTrack Web: Intento $attempt/$totalAttempts con $label falló ($e).');
+        debugPrint(
+          'TensioTrack Web: Intento $attempt/$totalAttempts con $label falló ($e).',
+        );
       }
 
       if (attempt < totalAttempts) {
@@ -125,7 +132,6 @@ Do NOT include any other text, explanation, units, or formatting.''';
       engineName: 'Gemini Vision (Web)',
     );
   }
-
 
   Future<OcrResult?> _recognizeWithGithub(Uint8List imageBytes) async {
     if (_githubModelsToken.isEmpty) {
@@ -414,4 +420,3 @@ class _PressureValues {
   final int systolic;
   final int diastolic;
 }
-

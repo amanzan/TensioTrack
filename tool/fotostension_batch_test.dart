@@ -62,11 +62,14 @@ void main() {
         : GeminiOcrService();
     var ok = 0;
     var failed = 0;
+    final durationsMs = <int>[];
 
     print('DIR=$dirPath');
     print('ENGINE=${engine.name}');
     print('MODEL=$modelAsset');
-    print('file,expected_sys,expected_dia,detected_sys,detected_dia,status');
+    print(
+      'file,expected_sys,expected_dia,detected_sys,detected_dia,status,duration_ms',
+    );
 
     for (final file in files) {
       final expected = _expectedReadingFromFile(file);
@@ -77,21 +80,27 @@ void main() {
       }
 
       final (expectedSys, expectedDia) = expected;
+      final imageBytes = await file.readAsBytes();
       int? detectedSys;
       int? detectedDia;
+      final stopwatch = Stopwatch()..start();
       switch (engine) {
         case _BatchOcrEngine.yolo:
-          final result = await reader!.readFromImagePath(file.path);
+          final result = await reader!.readFromImageBytes(imageBytes);
           detectedSys = result?.systolic;
           detectedDia = result?.diastolic;
         case _BatchOcrEngine.hybrid:
           final result = await ocrService!.recognizePressure(
             file.path,
-            await file.readAsBytes(),
+            imageBytes,
           );
           detectedSys = result?.systolic;
           detectedDia = result?.diastolic;
       }
+      stopwatch.stop();
+      final durationMs = stopwatch.elapsedMilliseconds;
+      durationsMs.add(durationMs);
+
       final status = detectedSys == expectedSys && detectedDia == expectedDia
           ? 'OK'
           : 'FAIL';
@@ -104,12 +113,13 @@ void main() {
 
       print(
         '${file.path},$expectedSys,$expectedDia,'
-        '${detectedSys ?? ''},${detectedDia ?? ''},$status',
+        '${detectedSys ?? ''},${detectedDia ?? ''},$status,$durationMs',
       );
     }
 
     await reader?.dispose();
     print('SUMMARY,total=${files.length},ok=$ok,failed=$failed');
+    print(_timingSummary(durationsMs));
   }, timeout: const Timeout(Duration(minutes: 5)));
 }
 
@@ -120,6 +130,20 @@ _BatchOcrEngine _batchEngineFromName(String name) {
     'hybrid' || 'hibrido' => _BatchOcrEngine.hybrid,
     _ => _BatchOcrEngine.yolo,
   };
+}
+
+String _timingSummary(List<int> durationsMs) {
+  if (durationsMs.isEmpty) {
+    return 'TIMING,count=0,total_ms=0,mean_ms=0.00,min_ms=0,max_ms=0';
+  }
+
+  final total = durationsMs.reduce((a, b) => a + b);
+  final min = durationsMs.reduce((a, b) => a < b ? a : b);
+  final max = durationsMs.reduce((a, b) => a > b ? a : b);
+  final mean = total / durationsMs.length;
+
+  return 'TIMING,count=${durationsMs.length},total_ms=$total,'
+      'mean_ms=${mean.toStringAsFixed(2)},min_ms=$min,max_ms=$max';
 }
 
 (int sys, int dia)? _expectedReadingFromFile(File file) {
