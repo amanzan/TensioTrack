@@ -6,6 +6,26 @@ import 'ocr_service_stub.dart'
     if (dart.library.html) 'ocr_service_web.dart'
     if (dart.library.js_interop) 'ocr_service_web.dart';
 
+enum OcrEngine {
+  gemini,
+  github,
+  groq,
+  hybrid,
+  yolo;
+
+  String get label => switch (this) {
+    OcrEngine.gemini => 'Gemini Vision (Cloud)',
+    OcrEngine.github => 'GitHub Models (Cloud)',
+    OcrEngine.groq => 'Groq Llama Vision (Cloud)',
+    OcrEngine.hybrid => 'Híbrido YOLO+CNN (Offline)',
+    OcrEngine.yolo => 'YOLO (Offline)',
+  };
+}
+
+class OcrConfig {
+  static OcrEngine engine = OcrEngine.hybrid;
+}
+
 /// Resultado del análisis OCR de una toma de presión.
 class OcrResult {
   OcrResult({

@@ -1,0 +1,2 @@
+Placeholder for tessdata traineddata files.
+For mobile usage, place eng.traineddata here.

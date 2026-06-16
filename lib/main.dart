@@ -21,7 +21,7 @@ const _uuid = Uuid();
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('es_ES');
-  
+
   // Inicializar notificaciones locales offline
   final notificationService = NotificationService();
   await notificationService.init();
@@ -251,19 +251,20 @@ class TensioStore extends ChangeNotifier {
     _reminders.add(reminder);
     _reminders.sort((a, b) => a.timeText.compareTo(b.timeText));
     await _saveReminders();
-    
+
     // Programar notificación si está activo
     if (reminder.enabled) {
       await NotificationService().scheduleDailyNotification(
         id: reminder.id.hashCode,
         title: reminder.title,
-        body: 'Es hora de tu recordatorio "${reminder.title}". ¡Tómate la tensión!',
+        body:
+            'Es hora de tu recordatorio "${reminder.title}". ¡Tómate la tensión!',
         hour: reminder.hour,
         minute: reminder.minute,
         repeatLabel: reminder.repeatLabel,
       );
     }
-    
+
     notifyListeners();
   }
 
@@ -273,13 +274,14 @@ class TensioStore extends ChangeNotifier {
     final oldReminder = _reminders[index];
     _reminders[index] = oldReminder.copyWith(enabled: enabled);
     await _saveReminders();
-    
+
     // Programar o cancelar notificación según corresponda
     if (enabled) {
       await NotificationService().scheduleDailyNotification(
         id: oldReminder.id.hashCode,
         title: oldReminder.title,
-        body: 'Es hora de tu recordatorio "${oldReminder.title}". ¡Tómate la tensión!',
+        body:
+            'Es hora de tu recordatorio "${oldReminder.title}". ¡Tómate la tensión!',
         hour: oldReminder.hour,
         minute: oldReminder.minute,
         repeatLabel: oldReminder.repeatLabel,
@@ -287,27 +289,27 @@ class TensioStore extends ChangeNotifier {
     } else {
       await NotificationService().cancelNotification(oldReminder.id.hashCode);
     }
-    
+
     notifyListeners();
   }
 
   Future<void> deleteReminder(String id) async {
     _reminders.removeWhere((reminder) => reminder.id == id);
     await _saveReminders();
-    
+
     // Cancelar notificación programada
     await NotificationService().cancelNotification(id.hashCode);
-    
+
     notifyListeners();
   }
 
   Future<void> clearAllReminders() async {
     _reminders.clear();
     await _saveReminders();
-    
+
     // Cancelar todas las notificaciones
     await NotificationService().cancelAllNotifications();
-    
+
     notifyListeners();
   }
 
@@ -418,6 +420,7 @@ class MainShell extends StatefulWidget {
 }
 
 class _MainShellState extends State<MainShell> {
+  static const _ocrEnginePrefKey = 'ocr_engine';
   static const int _homeTab = 0;
   static const int _captureTab = 1;
   static const int _historyTab = 2;
@@ -426,14 +429,21 @@ class _MainShellState extends State<MainShell> {
 
   int _index = 0;
   bool _autoStartCamera = false;
+  OcrEngine _ocrEngine = kIsWeb ? OcrEngine.gemini : OcrConfig.engine;
   StreamSubscription<String?>? _notificationSub;
 
   @override
   void initState() {
     super.initState();
+    if (kIsWeb && (OcrConfig.engine == OcrEngine.hybrid || OcrConfig.engine == OcrEngine.yolo)) {
+      OcrConfig.engine = OcrEngine.gemini;
+    }
+    _loadOcrEngine();
 
     // 1. Escuchar clicks de notificación si la app está en segundo plano o activa
-    _notificationSub = NotificationService().onNotificationClick.listen((payload) {
+    _notificationSub = NotificationService().onNotificationClick.listen((
+      payload,
+    ) {
       if (payload == 'capture') {
         _switchToCaptureAndCamera();
       }
@@ -461,6 +471,29 @@ class _MainShellState extends State<MainShell> {
     });
   }
 
+  Future<void> _loadOcrEngine() async {
+    final prefs = await SharedPreferences.getInstance();
+    final saved = prefs.getString(_ocrEnginePrefKey);
+    var engine = OcrEngine.values.firstWhere(
+      (value) => value.name == saved,
+      orElse: () => OcrConfig.engine,
+    );
+    if (kIsWeb && (engine == OcrEngine.hybrid || engine == OcrEngine.yolo)) {
+      engine = OcrEngine.gemini;
+    }
+    OcrConfig.engine = engine;
+    if (mounted) {
+      setState(() => _ocrEngine = engine);
+    }
+  }
+
+  Future<void> _setOcrEngine(OcrEngine engine) async {
+    setState(() => _ocrEngine = engine);
+    OcrConfig.engine = engine;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_ocrEnginePrefKey, engine.name);
+  }
+
   void _openManualEntry([
     EntryMethod method = EntryMethod.manual,
     int? systolic,
@@ -476,7 +509,10 @@ class _MainShellState extends State<MainShell> {
         initialSystolic: systolic,
         initialDiastolic: diastolic,
         onSaveSuccess: () {
-          SuccessAlert.show(context, 'La medición se ha registrado correctamente.');
+          SuccessAlert.show(
+            context,
+            'La medición se ha registrado correctamente.',
+          );
         },
       ),
     );
@@ -488,6 +524,10 @@ class _MainShellState extends State<MainShell> {
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 520),
         child: Scaffold(
+          drawer: AppSettingsDrawer(
+            selectedEngine: _ocrEngine,
+            onEngineChanged: _setOcrEngine,
+          ),
           body: SafeArea(
             child: IndexedStack(
               index: _index,
@@ -571,6 +611,140 @@ class _MainShellState extends State<MainShell> {
 
   void _setTab(int index) {
     setState(() => _index = index);
+  }
+}
+
+class AppSettingsDrawer extends StatelessWidget {
+  const AppSettingsDrawer({
+    super.key,
+    required this.selectedEngine,
+    required this.onEngineChanged,
+  });
+
+  final OcrEngine selectedEngine;
+  final ValueChanged<OcrEngine> onEngineChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Drawer(
+      child: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 14),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFE6F4F3),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.tune_rounded,
+                      color: Color(0xFF008D84),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Text(
+                      'Ajustes',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF202124),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 18, 20, 6),
+              child: Text(
+                'OCR EN LA NUBE (CLOUD)',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w900,
+                  color: Colors.black54,
+                  letterSpacing: 1.1,
+                ),
+              ),
+            ),
+            RadioListTile<OcrEngine>(
+              value: OcrEngine.gemini,
+              groupValue: selectedEngine,
+              onChanged: (value) {
+                if (value != null) onEngineChanged(value);
+              },
+              title: const Text('Gemini Vision'),
+              secondary: const Icon(Icons.cloud_rounded),
+              activeColor: const Color(0xFF008D84),
+            ),
+            RadioListTile<OcrEngine>(
+              value: OcrEngine.github,
+              groupValue: selectedEngine,
+              onChanged: (value) {
+                if (value != null) onEngineChanged(value);
+              },
+              title: const Text('GitHub Models'),
+              secondary: const Icon(Icons.code_rounded),
+              activeColor: const Color(0xFF008D84),
+            ),
+            RadioListTile<OcrEngine>(
+              value: OcrEngine.groq,
+              groupValue: selectedEngine,
+              onChanged: (value) {
+                if (value != null) onEngineChanged(value);
+              },
+              title: const Text('Groq Llama Vision'),
+              secondary: const Icon(Icons.bolt_rounded),
+              activeColor: const Color(0xFF008D84),
+            ),
+
+            // Motores Offline (Solo visibles fuera de Web)
+            if (!kIsWeb) ...[
+              const Divider(height: 1),
+              const Padding(
+                padding: EdgeInsets.fromLTRB(20, 18, 20, 6),
+                child: Text(
+                  'OCR LOCAL (OFFLINE)',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.black54,
+                    letterSpacing: 1.1,
+                  ),
+                ),
+              ),
+              RadioListTile<OcrEngine>(
+                value: OcrEngine.hybrid,
+                groupValue: selectedEngine,
+                onChanged: (value) {
+                  if (value != null) onEngineChanged(value);
+                },
+                title: const Text('Híbrido YOLO+CNN'),
+                secondary: const Icon(Icons.psychology_rounded),
+                activeColor: const Color(0xFF008D84),
+              ),
+              RadioListTile<OcrEngine>(
+                value: OcrEngine.yolo,
+                groupValue: selectedEngine,
+                onChanged: (value) {
+                  if (value != null) onEngineChanged(value);
+                },
+                title: const Text('YOLO'),
+                secondary: const Icon(Icons.center_focus_strong_rounded),
+                activeColor: const Color(0xFF008D84),
+              ),
+            ],
+
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -710,11 +884,7 @@ class HomeActionCard extends StatelessWidget {
                     color: iconBgColor,
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(
-                    icon,
-                    color: iconColor,
-                    size: 24,
-                  ),
+                  child: Icon(icon, color: iconColor, size: 24),
                 ),
                 const SizedBox(height: 14),
                 Text(
@@ -921,12 +1091,19 @@ class _CaptureScreenState extends State<CaptureScreen> {
 
   Future<void> _pickImage(ImageSource source) async {
     final picker = ImagePicker();
-    final image = await picker.pickImage(
-      source: source,
-      imageQuality: 80,
-      maxWidth: 768,
-      maxHeight: 768,
-    );
+    final image = source == ImageSource.gallery
+        ? await picker.pickImage(
+            source: source,
+            imageQuality: 95,
+            maxWidth: 2048,
+            maxHeight: 2048,
+          )
+        : await picker.pickImage(
+            source: source,
+            imageQuality: 95,
+            maxWidth: 1600,
+            maxHeight: 1600,
+          );
     if (image == null) return;
 
     final bytes = await image.readAsBytes();
@@ -938,14 +1115,15 @@ class _CaptureScreenState extends State<CaptureScreen> {
       _apiKeyMissing = false;
       _ocrError = null;
     });
+    await Future<void>.delayed(const Duration(milliseconds: 80));
 
     final webCloudKeyMissing = _forceGithubOcr
         ? _githubModelsToken.isEmpty
         : _forceGroqOcr
-            ? _groqApiKey.isEmpty
-            : _geminiApiKey.isEmpty &&
-                _githubModelsToken.isEmpty &&
-                _groqApiKey.isEmpty;
+        ? _groqApiKey.isEmpty
+        : _geminiApiKey.isEmpty &&
+              _githubModelsToken.isEmpty &&
+              _groqApiKey.isEmpty;
     if (webCloudKeyMissing && kIsWeb) {
       if (!mounted) return;
       setState(() {
@@ -967,20 +1145,35 @@ class _CaptureScreenState extends State<CaptureScreen> {
     } catch (e) {
       debugPrint('Error durante el OCR: $e');
       if (mounted) {
-        String userFriendlyMsg = 'Ocurrió un error inesperado al conectar con el servidor de IA.';
+        String userFriendlyMsg =
+            'Ocurrió un error inesperado al conectar con el servidor de IA.';
         final errorStr = e.toString();
-        
-        if (errorStr.contains('503') || errorStr.contains('UNAVAILABLE') || errorStr.contains('high demand')) {
-          userFriendlyMsg = 'El servidor de Gemini está saturado debido a una alta demanda temporal. Por favor, inténtalo de nuevo en unos momentos.';
-        } else if (errorStr.contains('RESOURCE_EXHAUSTED') || errorStr.contains('429')) {
-          userFriendlyMsg = 'Se ha superado el límite de peticiones de la clave API. Por favor, espera un minuto antes de reintentarlo.';
-        } else if (errorStr.contains('400') || errorStr.contains('API_KEY_INVALID') || errorStr.contains('invalid key')) {
-          userFriendlyMsg = 'La clave API de Gemini, GitHub Models o Groq no es válida o está mal configurada. Revisa tus variables de entorno.';
-        } else if (errorStr.contains('TimeoutException') || errorStr.contains('SocketException') || errorStr.contains('Network') || errorStr.contains('Failed host lookup')) {
-          userFriendlyMsg = 'No se ha podido establecer conexión a internet. Comprueba tu red Wi-Fi o datos móviles.';
+
+        if (errorStr.contains('503') ||
+            errorStr.contains('UNAVAILABLE') ||
+            errorStr.contains('high demand')) {
+          userFriendlyMsg =
+              'El servidor de Gemini está saturado debido a una alta demanda temporal. Por favor, inténtalo de nuevo en unos momentos.';
+        } else if (errorStr.contains('RESOURCE_EXHAUSTED') ||
+            errorStr.contains('429')) {
+          userFriendlyMsg =
+              'Se ha superado el límite de peticiones de la clave API. Por favor, espera un minuto antes de reintentarlo.';
+        } else if (errorStr.contains('400') ||
+            errorStr.contains('API_KEY_INVALID') ||
+            errorStr.contains('invalid key')) {
+          userFriendlyMsg =
+              'La clave API de Gemini, GitHub Models o Groq no es válida o está mal configurada. Revisa tus variables de entorno.';
+        } else if (errorStr.contains('TimeoutException') ||
+            errorStr.contains('SocketException') ||
+            errorStr.contains('Network') ||
+            errorStr.contains('Failed host lookup')) {
+          userFriendlyMsg =
+              'No se ha podido establecer conexión a internet. Comprueba tu red Wi-Fi o datos móviles.';
         } else {
           if (errorStr.startsWith('GenerativeAIException:')) {
-            userFriendlyMsg = errorStr.replaceFirst('GenerativeAIException:', '').trim();
+            userFriendlyMsg = errorStr
+                .replaceFirst('GenerativeAIException:', '')
+                .trim();
           } else {
             userFriendlyMsg = errorStr;
           }
@@ -1005,7 +1198,9 @@ class _CaptureScreenState extends State<CaptureScreen> {
       _apiKeyMissing = false;
       _ocrError = null;
       // Pequeño byte array de imagen PNG 1x1 para simular el canvas de carga
-      _imageBytes = base64Decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==");
+      _imageBytes = base64Decode(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+      );
     });
 
     await Future<void>.delayed(const Duration(milliseconds: 1200));
@@ -1072,7 +1267,10 @@ class _CaptureScreenState extends State<CaptureScreen> {
                             shape: const CircleBorder(),
                             child: IconButton(
                               onPressed: _clearImage,
-                              icon: const Icon(Icons.delete_outline_rounded, color: Colors.white),
+                              icon: const Icon(
+                                Icons.delete_outline_rounded,
+                                color: Colors.white,
+                              ),
                               tooltip: 'Borrar imagen',
                             ),
                           ),
@@ -1081,8 +1279,20 @@ class _CaptureScreenState extends State<CaptureScreen> {
                         Container(
                           color: Colors.black.withValues(alpha: .35),
                           child: const Center(
-                            child: CircularProgressIndicator(
-                              color: Colors.white,
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                CircularProgressIndicator(color: Colors.white),
+                                SizedBox(height: 14),
+                                Text(
+                                  'Analizando...',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 15,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ),
@@ -1094,50 +1304,64 @@ class _CaptureScreenState extends State<CaptureScreen> {
             children: [
               Expanded(
                 child: FilledButton.icon(
-                  onPressed: () => _pickImage(ImageSource.camera),
+                  onPressed: _processing
+                      ? null
+                      : () => _pickImage(ImageSource.camera),
                   icon: const Icon(Icons.photo_camera_outlined, size: 18),
                   label: const Text('Cámara', style: TextStyle(fontSize: 12.5)),
                   style: FilledButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 10),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: () => _pickImage(ImageSource.gallery),
+                  onPressed: _processing
+                      ? null
+                      : () => _pickImage(ImageSource.gallery),
                   icon: const Icon(Icons.photo_library_outlined, size: 18),
-                  label: const Text('Galería', style: TextStyle(fontSize: 12.5)),
+                  label: const Text(
+                    'Galería',
+                    style: TextStyle(fontSize: 12.5),
+                  ),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 10),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: _loadDemoImage,
+                  onPressed: _processing ? null : _loadDemoImage,
                   icon: const Icon(Icons.auto_awesome, size: 18),
                   label: const Text('Demo', style: TextStyle(fontSize: 12.5)),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: const Color(0xFF008D84),
                     padding: const EdgeInsets.symmetric(vertical: 10),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 12),
-          
+
           // Panel dinámico de información / estado del OCR
           if (_processing)
             const InfoPanel(
               icon: Icons.analytics_outlined,
               title: 'Analizando imagen...',
-              text: 'Procesando la captura con el motor OCR inteligente para detectar las métricas de presión arterial...',
+              text:
+                  'Procesando la captura con el motor OCR inteligente para detectar las métricas de presión arterial...',
             )
           else if (_ocrFailed && _apiKeyMissing)
             Container(
@@ -1152,7 +1376,11 @@ class _CaptureScreenState extends State<CaptureScreen> {
                 children: [
                   const Row(
                     children: [
-                      Icon(Icons.key_off_rounded, color: Color(0xFFF6AA1C), size: 28),
+                      Icon(
+                        Icons.key_off_rounded,
+                        color: Color(0xFFF6AA1C),
+                        size: 28,
+                      ),
                       SizedBox(width: 12),
                       Text(
                         'Clave API no detectada',
@@ -1173,7 +1401,11 @@ class _CaptureScreenState extends State<CaptureScreen> {
                     ' 3. En el campo "Additional arguments", añade:\n'
                     '    --dart-define-from-file=.env.json\n'
                     ' 4. Haz clic en Apply y luego detén y vuelve a arrancar la aplicación.',
-                    style: TextStyle(color: Colors.black87, height: 1.4, fontSize: 13.5),
+                    style: TextStyle(
+                      color: Colors.black87,
+                      height: 1.4,
+                      fontSize: 13.5,
+                    ),
                   ),
                   const SizedBox(height: 16),
                   Row(
@@ -1181,11 +1413,19 @@ class _CaptureScreenState extends State<CaptureScreen> {
                       Expanded(
                         child: OutlinedButton.icon(
                           onPressed: _loadDemoImage,
-                          icon: const Icon(Icons.auto_awesome, color: Color(0xFF008D84)),
-                          label: const Text('Probar con demo interactiva', style: TextStyle(color: Color(0xFF008D84))),
+                          icon: const Icon(
+                            Icons.auto_awesome,
+                            color: Color(0xFF008D84),
+                          ),
+                          label: const Text(
+                            'Probar con demo interactiva',
+                            style: TextStyle(color: Color(0xFF008D84)),
+                          ),
                           style: OutlinedButton.styleFrom(
                             side: const BorderSide(color: Color(0xFF008D84)),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                           ),
                         ),
                       ),
@@ -1208,13 +1448,17 @@ class _CaptureScreenState extends State<CaptureScreen> {
                   Row(
                     children: [
                       Icon(
-                        _ocrError != null ? Icons.cloud_off_rounded : Icons.warning_amber_rounded,
+                        _ocrError != null
+                            ? Icons.cloud_off_rounded
+                            : Icons.warning_amber_rounded,
                         color: const Color(0xFFE55B5B),
                         size: 28,
                       ),
                       const SizedBox(width: 12),
                       Text(
-                        _ocrError != null ? 'Fallo en la detección inteligente' : 'No se detectaron métricas',
+                        _ocrError != null
+                            ? 'Fallo en la detección inteligente'
+                            : 'No se detectaron métricas',
                         style: const TextStyle(
                           fontWeight: FontWeight.w900,
                           fontSize: 17,
@@ -1226,11 +1470,15 @@ class _CaptureScreenState extends State<CaptureScreen> {
                   const SizedBox(height: 10),
                   Text(
                     _ocrError ??
-                    'No logramos encontrar los números de presión arterial en esta foto de forma automática. Asegúrate de que:\n'
-                    ' • La pantalla del tensiómetro esté bien enfocada y centrada.\n'
-                    ' • Evites reflejos fuertes de luz o sombras marcadas.\n'
-                    ' • Los números sean grandes y claramente visibles.',
-                    style: const TextStyle(color: Colors.black87, height: 1.4, fontSize: 13.5),
+                        'No logramos encontrar los números de presión arterial en esta foto de forma automática. Asegúrate de que:\n'
+                            ' • La pantalla del tensiómetro esté bien enfocada y centrada.\n'
+                            ' • Evites reflejos fuertes de luz o sombras marcadas.\n'
+                            ' • Los números sean grandes y claramente visibles.',
+                    style: const TextStyle(
+                      color: Colors.black87,
+                      height: 1.4,
+                      fontSize: 13.5,
+                    ),
                   ),
                   const SizedBox(height: 16),
                   Row(
@@ -1238,11 +1486,19 @@ class _CaptureScreenState extends State<CaptureScreen> {
                       Expanded(
                         child: OutlinedButton.icon(
                           onPressed: _loadDemoImage,
-                          icon: const Icon(Icons.auto_awesome, color: Color(0xFF008D84)),
-                          label: const Text('Probar con demo interactiva', style: TextStyle(color: Color(0xFF008D84))),
+                          icon: const Icon(
+                            Icons.auto_awesome,
+                            color: Color(0xFF008D84),
+                          ),
+                          label: const Text(
+                            'Probar con demo interactiva',
+                            style: TextStyle(color: Color(0xFF008D84)),
+                          ),
                           style: OutlinedButton.styleFrom(
                             side: const BorderSide(color: Color(0xFF008D84)),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                           ),
                         ),
                       ),
@@ -1255,7 +1511,8 @@ class _CaptureScreenState extends State<CaptureScreen> {
             const InfoPanel(
               icon: Icons.document_scanner_outlined,
               title: 'Reconocimiento OCR Inteligente',
-              text: 'Saca una foto o elige una imagen de tu tensiómetro. TensioTrack detectará automáticamente los valores más grandes correspondientes a la presión sistólica y diastólica.',
+              text:
+                  'Saca una foto o elige una imagen de tu tensiómetro. TensioTrack detectará automáticamente los valores más grandes correspondientes a la presión sistólica y diastólica.',
             ),
 
           // Tarjeta de resultados detallados (solo si se detectaron valores)
@@ -1273,7 +1530,11 @@ class _CaptureScreenState extends State<CaptureScreen> {
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.check_circle, color: Color(0xFF008D84), size: 24),
+                      const Icon(
+                        Icons.check_circle,
+                        color: Color(0xFF008D84),
+                        size: 24,
+                      ),
                       const SizedBox(width: 10),
                       const Text(
                         '¡Métricas Detectadas!',
@@ -1285,7 +1546,10 @@ class _CaptureScreenState extends State<CaptureScreen> {
                       ),
                       const Spacer(),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: const Color(0xFF008D84).withValues(alpha: .1),
                           borderRadius: BorderRadius.circular(8),
@@ -1305,9 +1569,25 @@ class _CaptureScreenState extends State<CaptureScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
-                      _detectedMetricColumn('SISTÓLICA', _ocrResult!.systolic > 0 ? '${_ocrResult!.systolic}' : '--', const Color(0xFF43B883)),
-                      Container(width: 1, height: 40, color: const Color(0x22008D84)),
-                      _detectedMetricColumn('DIASTÓLICA', _ocrResult!.diastolic > 0 ? '${_ocrResult!.diastolic}' : '--', const Color(0xFF5E8CFF)),
+                      _detectedMetricColumn(
+                        'SISTÓLICA',
+                        _ocrResult!.systolic > 0
+                            ? '${_ocrResult!.systolic}'
+                            : '--',
+                        const Color(0xFF43B883),
+                      ),
+                      Container(
+                        width: 1,
+                        height: 40,
+                        color: const Color(0x22008D84),
+                      ),
+                      _detectedMetricColumn(
+                        'DIASTÓLICA',
+                        _ocrResult!.diastolic > 0
+                            ? '${_ocrResult!.diastolic}'
+                            : '--',
+                        const Color(0xFF5E8CFF),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 12),
@@ -1325,18 +1605,23 @@ class _CaptureScreenState extends State<CaptureScreen> {
           ],
 
           const SizedBox(height: 12),
-          
+
           // Botón de acción principal adaptativo
           FilledButton.icon(
             onPressed: () {
               if (_ocrResult != null) {
-                widget.onManualEntry(_ocrResult!.systolic, _ocrResult!.diastolic);
+                widget.onManualEntry(
+                  _ocrResult!.systolic,
+                  _ocrResult!.diastolic,
+                );
               } else {
                 widget.onManualEntry(null, null);
               }
             },
             icon: Icon(
-              _ocrResult != null ? Icons.check_circle_outline : Icons.edit_note_outlined,
+              _ocrResult != null
+                  ? Icons.check_circle_outline
+                  : Icons.edit_note_outlined,
             ),
             label: Text(
               _ocrResult != null
@@ -1344,7 +1629,9 @@ class _CaptureScreenState extends State<CaptureScreen> {
                   : 'Introducir valores manualmente',
             ),
             style: FilledButton.styleFrom(
-              backgroundColor: _ocrResult != null ? const Color(0xFF008D84) : null,
+              backgroundColor: _ocrResult != null
+                  ? const Color(0xFF008D84)
+                  : null,
               padding: const EdgeInsets.symmetric(vertical: 14),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(18),
@@ -1407,7 +1694,8 @@ class OcrOverlayPainter extends CustomPainter {
     if (isDemo) {
       // Dibujar fondo de pantalla LCD simulado
       final lcdPaint = Paint()
-        ..color = const Color(0xFFE2EAD9) // Tono verdoso LCD clásico retro
+        ..color =
+            const Color(0xFFE2EAD9) // Tono verdoso LCD clásico retro
         ..style = PaintingStyle.fill;
       canvas.drawRRect(
         RRect.fromRectAndRadius(
@@ -1445,20 +1733,24 @@ class OcrOverlayPainter extends CustomPainter {
     }
 
     final paintSystolic = Paint()
-      ..color = const Color(0x3343B883) // Verde semitransparente
+      ..color =
+          const Color(0x3343B883) // Verde semitransparente
       ..style = PaintingStyle.fill;
 
     final borderSystolic = Paint()
-      ..color = const Color(0xFF43B883) // Verde
+      ..color =
+          const Color(0xFF43B883) // Verde
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3.0;
 
     final paintDiastolic = Paint()
-      ..color = const Color(0x335E8CFF) // Azul semitransparente
+      ..color =
+          const Color(0x335E8CFF) // Azul semitransparente
       ..style = PaintingStyle.fill;
 
     final borderDiastolic = Paint()
-      ..color = const Color(0xFF5E8CFF) // Azul
+      ..color =
+          const Color(0xFF5E8CFF) // Azul
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3.0;
 
@@ -1487,9 +1779,20 @@ class OcrOverlayPainter extends CustomPainter {
         numPainter.paint(canvas, textOffset);
       }
 
-      canvas.drawRRect(RRect.fromRectAndRadius(rect, const Radius.circular(8)), paintSystolic);
-      canvas.drawRRect(RRect.fromRectAndRadius(rect, const Radius.circular(8)), borderSystolic);
-      _drawText(canvas, 'SYS: ${result.systolic}', rect.topLeft + const Offset(4, -20), const Color(0xFF43B883));
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(rect, const Radius.circular(8)),
+        paintSystolic,
+      );
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(rect, const Radius.circular(8)),
+        borderSystolic,
+      );
+      _drawText(
+        canvas,
+        'SYS: ${result.systolic}',
+        rect.topLeft + const Offset(4, -20),
+        const Color(0xFF43B883),
+      );
     }
 
     // Dibujar caja de Diastólica
@@ -1517,9 +1820,20 @@ class OcrOverlayPainter extends CustomPainter {
         numPainter.paint(canvas, textOffset);
       }
 
-      canvas.drawRRect(RRect.fromRectAndRadius(rect, const Radius.circular(8)), paintDiastolic);
-      canvas.drawRRect(RRect.fromRectAndRadius(rect, const Radius.circular(8)), borderDiastolic);
-      _drawText(canvas, 'DIA: ${result.diastolic}', rect.topLeft + const Offset(4, -20), const Color(0xFF5E8CFF));
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(rect, const Radius.circular(8)),
+        paintDiastolic,
+      );
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(rect, const Radius.circular(8)),
+        borderDiastolic,
+      );
+      _drawText(
+        canvas,
+        'DIA: ${result.diastolic}',
+        rect.topLeft + const Offset(4, -20),
+        const Color(0xFF5E8CFF),
+      );
     }
   }
 
@@ -1941,7 +2255,11 @@ class RemindersScreen extends StatelessWidget {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
         title: const Row(
           children: [
-            Icon(Icons.warning_amber_rounded, color: Color(0xFFE55B5B), size: 28),
+            Icon(
+              Icons.warning_amber_rounded,
+              color: Color(0xFFE55B5B),
+              size: 28,
+            ),
             SizedBox(width: 12),
             Text('¿Borrar todos?'),
           ],
@@ -1952,15 +2270,23 @@ class RemindersScreen extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancelar', style: TextStyle(color: Colors.black54)),
+            child: const Text(
+              'Cancelar',
+              style: TextStyle(color: Colors.black54),
+            ),
           ),
           FilledButton(
             onPressed: () {
               store.clearAllReminders();
               Navigator.of(context).pop();
-              SuccessAlert.show(context, 'Todos los recordatorios han sido eliminados.');
+              SuccessAlert.show(
+                context,
+                'Todos los recordatorios han sido eliminados.',
+              );
             },
-            style: FilledButton.styleFrom(backgroundColor: const Color(0xFFE55B5B)),
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFFE55B5B),
+            ),
             child: const Text('Confirmar'),
           ),
         ],
@@ -1978,8 +2304,18 @@ class RemindersScreen extends StatelessWidget {
       trailing: store.reminders.isNotEmpty
           ? TextButton.icon(
               onPressed: () => _confirmClearAll(context, store),
-              icon: const Icon(Icons.delete_sweep_outlined, color: Color(0xFFE55B5B), size: 20),
-              label: const Text('Limpiar todo', style: TextStyle(color: Color(0xFFE55B5B), fontWeight: FontWeight.bold)),
+              icon: const Icon(
+                Icons.delete_sweep_outlined,
+                color: Color(0xFFE55B5B),
+                size: 20,
+              ),
+              label: const Text(
+                'Limpiar todo',
+                style: TextStyle(
+                  color: Color(0xFFE55B5B),
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             )
           : null,
       child: ListView(
@@ -2017,7 +2353,10 @@ class RemindersScreen extends StatelessWidget {
       backgroundColor: Colors.transparent,
       builder: (_) => ReminderSheet(
         onSaveSuccess: () {
-          SuccessAlert.show(context, 'El recordatorio se ha guardado correctamente.');
+          SuccessAlert.show(
+            context,
+            'El recordatorio se ha guardado correctamente.',
+          );
         },
       ),
     );
@@ -2041,7 +2380,11 @@ class ReminderTile extends StatelessWidget {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
         title: const Row(
           children: [
-            Icon(Icons.delete_forever_rounded, color: Color(0xFFE55B5B), size: 28),
+            Icon(
+              Icons.delete_forever_rounded,
+              color: Color(0xFFE55B5B),
+              size: 28,
+            ),
             SizedBox(width: 12),
             Text('¿Borrar aviso?'),
           ],
@@ -2052,7 +2395,10 @@ class ReminderTile extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancelar', style: TextStyle(color: Colors.black54)),
+            child: const Text(
+              'Cancelar',
+              style: TextStyle(color: Colors.black54),
+            ),
           ),
           FilledButton(
             onPressed: () {
@@ -2060,7 +2406,9 @@ class ReminderTile extends StatelessWidget {
               Navigator.of(context).pop();
               SuccessAlert.show(context, 'El recordatorio ha sido eliminado.');
             },
-            style: FilledButton.styleFrom(backgroundColor: const Color(0xFFE55B5B)),
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFFE55B5B),
+            ),
             child: const Text('Eliminar'),
           ),
         ],
@@ -2097,7 +2445,11 @@ class ReminderTile extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             IconButton(
-              icon: const Icon(Icons.delete_outline_rounded, color: Color(0xFFE55B5B), size: 22),
+              icon: const Icon(
+                Icons.delete_outline_rounded,
+                color: Color(0xFFE55B5B),
+                size: 22,
+              ),
               onPressed: () => _confirmDelete(context, store),
               tooltip: 'Borrar recordatorio',
             ),
@@ -2138,10 +2490,14 @@ class _ManualEntrySheetState extends State<ManualEntrySheet> {
   void initState() {
     super.initState();
     _systolic = TextEditingController(
-      text: widget.initialSystolic != null && widget.initialSystolic! > 0 ? '${widget.initialSystolic}' : '',
+      text: widget.initialSystolic != null && widget.initialSystolic! > 0
+          ? '${widget.initialSystolic}'
+          : '',
     );
     _diastolic = TextEditingController(
-      text: widget.initialDiastolic != null && widget.initialDiastolic! > 0 ? '${widget.initialDiastolic}' : '',
+      text: widget.initialDiastolic != null && widget.initialDiastolic! > 0
+          ? '${widget.initialDiastolic}'
+          : '',
     );
     if (widget.method == EntryMethod.camera) {
       _notes.text = 'Lectura detectada automáticamente vía OCR.';
@@ -2381,15 +2737,27 @@ class ScreenFrame extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
+              IconButton(
+                onPressed: () => Scaffold.maybeOf(context)?.openDrawer(),
+                icon: const Icon(Icons.menu_rounded),
+                tooltip: 'Abrir ajustes',
+              ),
+              const SizedBox(width: 8),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(title, style: Theme.of(context).textTheme.headlineMedium),
+                    Text(
+                      title,
+                      style: Theme.of(context).textTheme.headlineMedium,
+                    ),
                     const SizedBox(height: 2),
                     Text(
                       subtitle,
-                      style: const TextStyle(color: Colors.black54, fontSize: 16),
+                      style: const TextStyle(
+                        color: Colors.black54,
+                        fontSize: 16,
+                      ),
                     ),
                   ],
                 ),

@@ -29,9 +29,15 @@ Tras la integración del motor OCR en la nube mediante Gemini, quedan las siguie
 - **Cifrado** o almacenamiento seguro reforzado.
 - **Sincronización en la nube** y exportación de informes en PDF/CSV.
 
-## Configuración del OCR cloud
+## Configuración del OCR
 
-Para que el reconocimiento automático por imagen funcione en modo cloud, configura al menos una clave. El orden normal de uso en móvil es Gemini, GitHub Models, Gemini, GitHub Models, Groq, Groq y después respaldo offline.
+La aplicación permite seleccionar dinámicamente el motor de OCR a utilizar a través del menú de ajustes lateral (sliding menu) de la interfaz de usuario. Los motores disponibles son:
+- **Motores en la Nube (Cloud):** Gemini Vision, GitHub Models y Groq Llama Vision.
+- **Motores Locales (Offline):** Híbrido YOLO+CNN (por defecto) y YOLO.
+
+Para utilizar los motores en la nube, es necesario configurar las claves correspondientes en la raíz del proyecto. Si seleccionas un método Cloud y este falla, la aplicación realizará **hasta 2 reintentos** automáticos. Si tras estos reintentos continúa fallando, conmutará automáticamente al método local **Híbrido YOLO+CNN** como fallback para asegurar la lectura.
+
+### Configuración de Claves de API
 
 1. Obtén una API Key de Gemini en [Google AI Studio](https://aistudio.google.com/).
 2. Opcionalmente, obtén una API key de Groq en [GroqCloud](https://console.groq.com/keys).
@@ -45,14 +51,12 @@ Para que el reconocimiento automático por imagen funcione en modo cloud, config
      "GEMINI_API_KEY": "TU_API_KEY_AQUI",
      "GROQ_API_KEY": "TU_API_KEY_DE_GROQ_OPCIONAL",
      "GITHUB_MODELS_TOKEN": "TU_PAT_DE_GITHUB_MODELS",
-     "GITHUB_MODELS_MODEL": "openai/gpt-4o-mini",
-     "FORCE_OFFLINE_OCR": false,
-     "FORCE_GITHUB_OCR": false,
-     "FORCE_GROQ_OCR": false
+     "GITHUB_MODELS_MODEL": "openai/gpt-4o-mini"
    }
    ```
 
-Para probar un motor concreto, cambia uno de los flags `FORCE_OFFLINE_OCR`, `FORCE_GITHUB_OCR` o `FORCE_GROQ_OCR` a `true`. El modelo por defecto de GitHub Models es `openai/gpt-4o-mini`; puedes sustituirlo por otro modelo multimodal del catálogo de GitHub Models siempre que acepte imágenes.
+El modelo por defecto de GitHub Models es `openai/gpt-4o-mini`; puedes sustituirlo por otro modelo de visión multimodal compatible.
+
 
 ## Ejecución
 
