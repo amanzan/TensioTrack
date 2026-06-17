@@ -689,52 +689,9 @@ class AppSettingsDrawer extends StatelessWidget {
               ),
             ),
             const Divider(height: 1),
-            const Padding(
-              padding: EdgeInsets.fromLTRB(20, 18, 20, 6),
-              child: Text(
-                'OCR EN LA NUBE (CLOUD)',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w900,
-                  color: Colors.black54,
-                  letterSpacing: 1.1,
-                ),
-              ),
-            ),
-            RadioListTile<OcrEngine>(
-              value: OcrEngine.gemini,
-              groupValue: selectedEngine,
-              onChanged: (value) {
-                if (value != null) onEngineChanged(value);
-              },
-              title: const Text('Gemini Vision'),
-              secondary: const Icon(Icons.cloud_rounded),
-              activeColor: const Color(0xFF008D84),
-            ),
-            RadioListTile<OcrEngine>(
-              value: OcrEngine.github,
-              groupValue: selectedEngine,
-              onChanged: (value) {
-                if (value != null) onEngineChanged(value);
-              },
-              title: const Text('GitHub Models'),
-              secondary: const Icon(Icons.code_rounded),
-              activeColor: const Color(0xFF008D84),
-            ),
-            RadioListTile<OcrEngine>(
-              value: OcrEngine.groq,
-              groupValue: selectedEngine,
-              onChanged: (value) {
-                if (value != null) onEngineChanged(value);
-              },
-              title: const Text('Groq Llama Vision'),
-              secondary: const Icon(Icons.bolt_rounded),
-              activeColor: const Color(0xFF008D84),
-            ),
 
             // Motores Offline (Solo visibles fuera de Web)
             if (!kIsWeb) ...[
-              const Divider(height: 1),
               const Padding(
                 padding: EdgeInsets.fromLTRB(20, 18, 20, 6),
                 child: Text(
@@ -767,7 +724,50 @@ class AppSettingsDrawer extends StatelessWidget {
                 secondary: const Icon(Icons.center_focus_strong_rounded),
                 activeColor: const Color(0xFF008D84),
               ),
+              const Divider(height: 1),
             ],
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 18, 20, 6),
+              child: Text(
+                'OCR EN LA NUBE (CLOUD)',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w900,
+                  color: Colors.black54,
+                  letterSpacing: 1.1,
+                ),
+              ),
+            ),
+            RadioListTile<OcrEngine>(
+              value: OcrEngine.groq,
+              groupValue: selectedEngine,
+              onChanged: (value) {
+                if (value != null) onEngineChanged(value);
+              },
+              title: const Text('Groq Llama Vision'),
+              secondary: const Icon(Icons.bolt_rounded),
+              activeColor: const Color(0xFF008D84),
+            ),
+            RadioListTile<OcrEngine>(
+              value: OcrEngine.github,
+              groupValue: selectedEngine,
+              onChanged: (value) {
+                if (value != null) onEngineChanged(value);
+              },
+              title: const Text('GitHub Models'),
+              secondary: const Icon(Icons.code_rounded),
+              activeColor: const Color(0xFF008D84),
+            ),
+            RadioListTile<OcrEngine>(
+              value: OcrEngine.gemini,
+              groupValue: selectedEngine,
+              onChanged: (value) {
+                if (value != null) onEngineChanged(value);
+              },
+              title: const Text('Gemini Vision'),
+              secondary: const Icon(Icons.cloud_rounded),
+              activeColor: const Color(0xFF008D84),
+            ),
           ],
         ),
       ),
